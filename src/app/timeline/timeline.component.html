@@ -1,0 +1,27 @@
+<section class="timeline-layout">
+  <aside class="work-centers-panel">
+    <div class="panel-header">Work Centers</div>
+
+    @for (center of workCenters; track center) {
+      <div class="work-center-row">{{ center }}</div>
+    }
+  </aside>
+
+  <div class="timeline-panel">
+    <div class="timeline-grid">
+      <div class="timeline-header-row">
+        @for (header of timelineHeaders; track header) {
+          <div class="timeline-header-cell">{{ header }}</div>
+        }
+      </div>
+
+      @for (center of workCenters; track center) {
+        <div class="timeline-data-row">
+          @for (header of timelineHeaders; track header) {
+            <div class="timeline-data-cell"></div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
