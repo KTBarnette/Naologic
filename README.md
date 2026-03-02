@@ -1,59 +1,43 @@
-# Naologic
+# Work Order Schedule Timeline
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.0.
+This project is a frontend technical exercise that implements a work order scheduling timeline for a manufacturing-style ERP system.
 
-## Development server
+The goal is to visualize work orders across multiple work centers over time, allow basic CRUD operations, and enforce scheduling constraints such as non-overlapping work orders.
 
-To start a local development server, run:
+---
+
+## Tech Stack
+
+- Angular 17 (standalone components)
+- TypeScript (strict mode)
+- SCSS
+- ng-select (status dropdown)
+- @ng-bootstrap/ng-bootstrap (date picker)
+
+---
+
+## Features Implemented
+
+- Fixed left column for work centers with a horizontally scrollable timeline grid
+- Day / Week / Month timeline zoom levels
+- Visual work order bars with status indicators
+- Click-to-create work orders from the timeline
+- Edit and delete actions via a contextual menu
+- Validation to prevent overlapping work orders on the same work center
+- Current day indicator and hover states for improved usability
+
+---
+
+## Project Structure
+
+The app is organized around a central timeline component, with layout, timeline math, and form logic kept separate to make the behavior easier to reason about and extend.
+
+Standalone Angular components are used throughout to keep the setup lightweight and explicit.
+
+---
+
+## Running the Project Locally
 
 ```bash
+npm install
 ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
