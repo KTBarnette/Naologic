@@ -2,24 +2,56 @@
   <aside class="work-centers-panel">
     <div class="panel-header">Work Centers</div>
 
-    @for (center of workCenters; track center) {
-      <div class="work-center-row">{{ center }}</div>
+    @for (center of workCenters; track center.id) {
+      <div class="work-center-row">{{ center.name }}</div>
     }
   </aside>
 
   <div class="timeline-panel">
     <div class="timeline-grid">
+      <!-- Today vertical indicator -->
+      <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
+
+      <!-- Header -->
       <div class="timeline-header-row">
-        @for (header of timelineHeaders; track header) {
-          <div class="timeline-header-cell">{{ header }}</div>
+        @for (d of visibleDates; track trackByIso($index, d)) {
+          <div
+            class="timeline-header-cell"
+            [style.width.px]="dayColWidthPx"
+            [class.is-today]="isToday(d)"
+          >
+            <div class="header-dow">{{ d | date: 'EEE' }}</div>
+            <div class="header-date">{{ d | date: 'MMM d' }}</div>
+          </div>
         }
       </div>
 
-      @for (center of workCenters; track center) {
+      <!-- Rows -->
+      @for (center of workCenters; track center.id) {
         <div class="timeline-data-row">
-          @for (header of timelineHeaders; track header) {
-            <div class="timeline-data-cell"></div>
+          @for (d of visibleDates; track trackByIso($index, d)) {
+            <div
+              class="timeline-data-cell"
+              [style.width.px]="dayColWidthPx"
+              [class.is-today]="isToday(d)"
+            ></div>
           }
+
+          <div class="work-order-layer">
+            @for (workOrder of workOrdersByWorkCenterId[center.id] ?? []; track workOrder.id) {
+              <button
+                type="button"
+                class="work-order-bar"
+                [style.left.px]="barLeftPx(workOrder)"
+                [style.width.px]="barWidthPx(workOrder)"
+              >
+                <span class="work-order-name">{{ workOrder.name }}</span>
+                <span class="status-badge" [class]="'status-badge status-' + workOrder.status">
+                  {{ workOrder.status }}
+                </span>
+              </button>
+            }
+          </div>
         </div>
       }
     </div>

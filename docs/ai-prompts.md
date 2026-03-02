@@ -18,3 +18,21 @@
   - Added a current-day indicator aligned to the correct date column
   - Preserved fixed left panel and horizontally scrollable timeline grid
   - Maintained a clean separation between layout/date visualization and business logic
+
+## Phase 3 – Static Work Orders on Day Timeline (AI-assisted)
+
+**Purpose:** Render realistic, non-interactive work order bars on a Day-based timeline using sample data.
+
+- Prompt summary:
+  > Asked AI to assist with defining strict TypeScript document models, generating hardcoded sample data, and positioning static work-order bars on a day-based timeline using SCSS-only styling. Explicitly excluded create/edit flows, services, persistence, and overlap logic.
+
+- Outcome:
+  - Introduced strongly typed document interfaces (WorkCenterDocument, WorkOrderDocument, WorkOrderStatus)
+  - Added hardcoded sample data:
+    - 5 work centers
+    - 9 work orders
+    - All required status types represented
+    - Multiple non-overlapping orders on the same work center
+  - Implemented day-based bar positioning using helper functions for left offset and width
+  - Rendered work order bars above the grid with status pills and hover affordances
+  - Preserved separation of concerns and kept logic minimal and readable
