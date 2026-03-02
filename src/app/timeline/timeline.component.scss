@@ -11,6 +11,8 @@
   min-height: 100vh;
 }
 
+/* ───────────── Left panel ───────────── */
+
 .work-centers-panel {
   width: 240px;
   flex: 0 0 240px;
@@ -18,12 +20,8 @@
   background: #ffffff;
 }
 
-.panel-header,
-.timeline-header-row {
-  height: 56px;
-}
-
 .panel-header {
+  height: 56px;
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -33,18 +31,16 @@
   background: #ffffff;
 }
 
-.work-center-row,
-.timeline-data-row {
-  height: 48px;
-}
-
 .work-center-row {
+  height: 48px;
   display: flex;
   align-items: center;
   padding: 0 16px;
   border-bottom: 1px solid #e5e7eb;
   font-size: 14px;
 }
+
+/* ───────────── Timeline panel ───────────── */
 
 .timeline-panel {
   flex: 1;
@@ -53,13 +49,17 @@
   background: #ffffff;
 }
 
+/* Grid expands based on number of date columns */
 .timeline-grid {
-  min-width: 1400px;
+  position: relative;
+  width: max-content;
 }
 
+/* ───────────── Header ───────────── */
+
 .timeline-header-row {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(110px, 1fr));
+  display: flex;
+  height: 56px;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -68,22 +68,55 @@
 }
 
 .timeline-header-cell {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding: 6px 12px;
   border-right: 1px solid #e5e7eb;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
+.header-dow {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.header-date {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ───────────── Rows / cells ───────────── */
+
 .timeline-data-row {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(110px, 1fr));
+  display: flex;
+  height: 48px;
 }
 
 .timeline-data-cell {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 48px;
   border-right: 1px solid #e5e7eb;
   border-bottom: 1px solid #e5e7eb;
   background: #fafbfc;
+}
+
+/* ───────────── Today styling ───────────── */
+
+.today-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(239, 68, 68, 0.85);
+  pointer-events: none;
+}
+
+.is-today {
+  background: rgba(59, 130, 246, 0.06);
 }
