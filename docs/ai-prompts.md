@@ -36,3 +36,13 @@
   - Implemented day-based bar positioning using helper functions for left offset and width
   - Rendered work order bars above the grid with status pills and hover affordances
   - Preserved separation of concerns and kept logic minimal and readable
+
+## Phase 4 — Codex SCSS pass
+
+Codex reported Phase 4 implemented via SCSS only:
+- Added CSS variables: left panel 380px, row 38px, header 32px, grid line rgba(230,235,240,1), 1px
+- Enforced 2-column grid layout: 380px + minmax(0,1fr)
+- Applied consistent row/header sizing and grid lines
+- Avoided doubled borders
+
+Next: verify selectors match DOM and confirm computed sizes in DevTools.
