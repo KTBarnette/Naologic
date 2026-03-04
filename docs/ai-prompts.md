@@ -116,3 +116,42 @@ Next: polish create/edit panel behavior and finalize UI details.
   - Added helper converters to map between ISO dates and datepicker structures
   - Defaulted new work orders to **start date from click position + end date = start + 7 days**
   - Preserved validation logic including **required fields, date range validation, and overlap detection** to block invalid saves
+
+  ## Phase 8 — Work Order Actions Menu (AI-assisted)
+
+**Purpose:** Add per-work-order actions (Edit/Delete) through a three-dot kebab menu on each timeline bar.
+
+- Prompt summary:
+  > Asked AI to implement a kebab (⋮) actions menu on the right side of each work-order bar with Edit and Delete options. Required minimal structural changes limited to `timeline.component.ts`, `timeline.component.html`, and `timeline.component.scss`. Explicitly required stopping event propagation so menu clicks do not trigger bar or row click handlers, supporting only one open menu at a time, and implementing close behaviors (outside click + ESC).
+
+- Outcome:
+  - Added `openActionsMenuWorkOrderId` state to track the currently open menu
+  - Implemented handlers to toggle the menu, edit from the menu, and delete a work order by id
+  - Reused existing edit behavior via extracted `openEditPanel(...)`
+  - Added outside-click detection to close the menu
+  - Added ESC key handling so the menu closes before the slide-out panel
+  - Implemented kebab button (⋮) on each work-order bar with dropdown actions
+  - Styled dropdown menu with rounded corners, hover states, and subtle shadow
+  - Ensured event propagation is stopped so kebab clicks do not trigger bar or row interactions
+  - Verified build with `CI=1 npx ng build`
+  
+## Phase 8 — Work Order Actions Menu (AI-assisted)
+
+**Purpose:** Implement per-work-order actions via a three-dot kebab menu with Edit/Delete functionality while ensuring correct interaction behavior, stacking order, and compatibility with the timeline layout.
+
+- Prompt summary:
+  > Asked AI to implement a kebab (⋮) actions menu on each work-order bar with Edit and Delete options. Required minimal changes limited to `timeline.component.ts`, `timeline.component.html`, and `timeline.component.scss`. The implementation needed to support a single open menu at a time, prevent event propagation from triggering row or bar click handlers, support close behaviors (outside click + ESC), and avoid UI conflicts with the row hover affordance and timeline stacking layers.
+
+- Outcome:
+  - Added kebab button (⋮) to each work-order bar with Edit/Delete actions
+  - Implemented menu state management for a single open menu instance
+  - Prevented event propagation so menu interactions do not trigger bar click or row create behaviors
+  - Implemented outside-click detection and ESC key handling to close the menu
+  - Integrated menu actions with existing edit and delete logic
+  - Adjusted hover affordance behavior so the “Click to add dates” pill hides while the actions menu is active
+  - Addressed stacking and overflow issues that caused the dropdown to render beneath adjacent bars and grid elements
+  - Refactored the menu implementation into a **floating overlay menu** rendered once at the timeline panel level
+  - Positioned the floating menu using the kebab button’s bounding rectangle and scroll offsets
+  - Ensured the menu is not clipped by timeline stacking contexts and always appears above timeline bars and grid layers
+  - Styled the menu with rounded corners, subtle shadows, and hover states consistent with the design
+  - Verified successful build using `CI=1 npx ng build`

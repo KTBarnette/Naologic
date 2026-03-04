@@ -18,6 +18,12 @@ type TimelineColumn = {
   containsToday: boolean;
 };
 
+type ActionsMenuState = {
+  workOrderId: string;
+  leftPx: number;
+  topPx: number;
+};
+
 const STRESS_MODE = new URLSearchParams(globalThis.location?.search ?? '').has('stress');
 const STRESS_WORK_CENTER_COUNT = 50;
 const STRESS_WORK_ORDER_COUNT = 10000;
@@ -58,6 +64,7 @@ export class TimelineComponent {
   saveError: string | null = null;
   hoverWorkCenterId: string | null = null;
   hoverHintLeftPx = 0;
+  actionsMenu: ActionsMenuState | null = null;
   readonly workOrderForm;
 
   constructor(private readonly formBuilder: FormBuilder) {
@@ -188,6 +195,7 @@ export class TimelineComponent {
   }
 
   onTimelineRowClick(event: MouseEvent, workCenterId: string): void {
+    this.closeActionsMenu();
     if (this.visibleColumns.length === 0) {
       return;
     }
@@ -207,6 +215,82 @@ export class TimelineComponent {
 
   onWorkOrderClick(event: MouseEvent, workOrder: WorkOrderDocument): void {
     event.stopPropagation();
+    this.closeActionsMenu();
+    this.openEditPanel(workOrder);
+  }
+
+  onWorkOrderKeydown(event: KeyboardEvent, workOrder: WorkOrderDocument): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeActionsMenu();
+    this.openEditPanel(workOrder);
+  }
+
+  onWorkOrderActionsToggle(event: MouseEvent, workOrderId: string): void {
+    event.stopPropagation();
+    const kebabButton = event.currentTarget as HTMLElement | null;
+    if (!kebabButton) {
+      return;
+    }
+
+    if (this.actionsMenu?.workOrderId === workOrderId) {
+      this.closeActionsMenu();
+      return;
+    }
+
+    const timelinePanel = kebabButton.closest('.timeline-panel') as HTMLElement | null;
+    if (!timelinePanel) {
+      return;
+    }
+
+    const buttonRect = kebabButton.getBoundingClientRect();
+    const panelRect = timelinePanel.getBoundingClientRect();
+    this.actionsMenu = {
+      workOrderId,
+      leftPx: buttonRect.right - panelRect.left + timelinePanel.scrollLeft,
+      topPx: buttonRect.bottom - panelRect.top + timelinePanel.scrollTop + 6
+    };
+  }
+
+  onFloatingActionsEdit(event: MouseEvent): void {
+    event.stopPropagation();
+    if (!this.actionsMenu) {
+      return;
+    }
+    const workOrder = this.findWorkOrderById(this.actionsMenu.workOrderId);
+    this.closeActionsMenu();
+    if (!workOrder) {
+      return;
+    }
+    this.openEditPanel(workOrder);
+  }
+
+  onFloatingActionsDelete(event: MouseEvent): void {
+    event.stopPropagation();
+    if (!this.actionsMenu) {
+      return;
+    }
+    const workOrderId = this.actionsMenu.workOrderId;
+    this.closeActionsMenu();
+    this.deleteWorkOrderById(workOrderId);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.actionsMenu) {
+      return;
+    }
+    const target = event.target as Element | null;
+    if (target?.closest('.work-order-actions') || target?.closest('.floating-actions-menu')) {
+      return;
+    }
+    this.closeActionsMenu();
+  }
+
+  private openEditPanel(workOrder: WorkOrderDocument): void {
     this.panelMode = 'edit';
     this.panelOpen = true;
     this.editingWorkOrderId = workOrder.id;
@@ -222,6 +306,12 @@ export class TimelineComponent {
   }
 
   onTimelineRowHover(event: MouseEvent, workCenterId: string): void {
+    if (this.isHoveringInteractiveElement(event) || this.actionsMenu) {
+      if (this.hoverWorkCenterId === workCenterId) {
+        this.hoverWorkCenterId = null;
+      }
+      return;
+    }
     this.hoverWorkCenterId = workCenterId;
     this.updateHoverHintPosition(event);
   }
@@ -244,6 +334,10 @@ export class TimelineComponent {
 
   @HostListener('document:keydown.escape')
   onEscapePressed(): void {
+    if (this.actionsMenu) {
+      this.closeActionsMenu();
+      return;
+    }
     if (this.panelOpen) {
       this.closePanel();
     }
@@ -310,13 +404,21 @@ export class TimelineComponent {
     if (!this.editingWorkOrderId) {
       return;
     }
-    const index = this.workOrders.findIndex((item) => item.id === this.editingWorkOrderId);
+    this.deleteWorkOrderById(this.editingWorkOrderId);
+  }
+
+  deleteWorkOrderById(workOrderId: string): void {
+    const index = this.workOrders.findIndex((item) => item.id === workOrderId);
     if (index < 0) {
       return;
     }
     this.workOrders.splice(index, 1);
     this.rebuildWorkOrderGroups();
-    this.closePanel();
+    if (this.editingWorkOrderId === workOrderId) {
+      this.closePanel();
+      return;
+    }
+    this.closeActionsMenu();
   }
 
   private rebuildWorkOrderGroups(): void {
@@ -506,6 +608,27 @@ export class TimelineComponent {
     const rowWidth = this.visibleColumns.length * this.colWidthPx;
     const x = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth);
     this.hoverHintLeftPx = x;
+  }
+
+  private isHoveringInteractiveElement(event: MouseEvent): boolean {
+    const target = event.target as Element | null;
+    if (!target) {
+      return false;
+    }
+    return Boolean(
+      target.closest('.work-order-bar') ||
+        target.closest('.work-order-actions') ||
+        target.closest('.floating-actions-menu') ||
+        target.closest('.work-order-kebab')
+    );
+  }
+
+  private closeActionsMenu(): void {
+    this.actionsMenu = null;
+  }
+
+  private findWorkOrderById(workOrderId: string): WorkOrderDocument | null {
+    return this.workOrders.find((workOrder) => workOrder.id === workOrderId) ?? null;
   }
 
   private isoToDateStruct(iso: string): NgbDateStruct | null {

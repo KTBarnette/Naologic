@@ -56,29 +56,56 @@
             ></div>
           }
 
-          @if (hoverWorkCenterId === center.id) {
+          @if (hoverWorkCenterId === center.id && !actionsMenu) {
             <span class="row-hover-pill" [style.left.px]="hoverHintLeftPx">Click to add dates</span>
           }
 
           <div class="work-order-layer">
             @for (workOrder of visibleWorkOrdersForCenter(center.id); track workOrder.id) {
-              <button
-                type="button"
+              <div
                 class="work-order-bar"
+                role="button"
+                tabindex="0"
                 [style.left.px]="barLeftPx(workOrder)"
                 [style.width.px]="barWidthPx(workOrder)"
                 (click)="onWorkOrderClick($event, workOrder)"
+                (keydown)="onWorkOrderKeydown($event, workOrder)"
               >
                 <span class="work-order-name">{{ workOrder.name }}</span>
                 <span class="status-badge" [class]="'status-badge status-' + workOrder.status">
                   {{ workOrder.status }}
                 </span>
-              </button>
+                <span class="work-order-actions" (click)="$event.stopPropagation()">
+                  <button
+                    type="button"
+                    class="work-order-kebab"
+                    [class.is-open]="actionsMenu?.workOrderId === workOrder.id"
+                    aria-label="Work order actions"
+                    (click)="onWorkOrderActionsToggle($event, workOrder.id)"
+                  >
+                    ⋮
+                  </button>
+                </span>
+              </div>
             }
           </div>
         </div>
       }
     </div>
+
+    @if (actionsMenu) {
+      <div
+        class="floating-actions-menu"
+        [style.left.px]="actionsMenu.leftPx"
+        [style.top.px]="actionsMenu.topPx"
+        (click)="$event.stopPropagation()"
+      >
+        <button type="button" class="work-order-menu-item" (click)="onFloatingActionsEdit($event)">Edit</button>
+        <button type="button" class="work-order-menu-item danger" (click)="onFloatingActionsDelete($event)">
+          Delete
+        </button>
+      </div>
+    }
   </div>
 </section>
 
