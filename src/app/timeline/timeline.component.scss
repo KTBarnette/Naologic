@@ -340,24 +340,24 @@
   white-space: nowrap;
 }
 
-.status-planned {
+.status-open {
   color: #1d4ed8;
   background: #dbeafe;
 }
 
 .status-in-progress {
-  color: #b45309;
-  background: #fef3c7;
+  color: #5b21b6;
+  background: #ede9fe;
 }
 
-.status-completed {
+.status-complete {
   color: #166534;
   background: #dcfce7;
 }
 
-.status-on-hold {
-  color: #991b1b;
-  background: #fee2e2;
+.status-blocked {
+  color: #c2410c;
+  background: #ffedd5;
 }
 
 /* ───────────── Today styling ───────────── */

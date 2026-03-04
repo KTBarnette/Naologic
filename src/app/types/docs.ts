@@ -1,4 +1,4 @@
-export type WorkOrderStatus = 'planned' | 'in-progress' | 'completed' | 'on-hold';
+export type WorkOrderStatus = 'open' | 'in-progress' | 'complete' | 'blocked';
 
 export interface WorkCenterDocument {
   id: string;

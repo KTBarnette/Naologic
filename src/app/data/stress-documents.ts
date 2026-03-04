@@ -2,7 +2,7 @@ import { WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../types
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const DEFAULT_SEED = 0x9e3779b9;
-const STATUS_POOL: WorkOrderStatus[] = ['planned', 'in-progress', 'completed', 'on-hold'];
+const STATUS_POOL: WorkOrderStatus[] = ['open', 'in-progress', 'complete', 'blocked'];
 
 function createSeededRng(seed = DEFAULT_SEED): () => number {
   let state = seed >>> 0;

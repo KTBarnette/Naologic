@@ -45,7 +45,7 @@ export class TimelineComponent {
   readonly weekColWidthPx = 168;
   readonly monthColWidthPx = 224;
   readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
-  readonly statusOptions: WorkOrderStatus[] = ['planned', 'in-progress', 'completed', 'on-hold'];
+  readonly statusOptions: WorkOrderStatus[] = ['open', 'in-progress', 'complete', 'blocked'];
   private readonly msPerDay = 1000 * 60 * 60 * 24;
   private readonly dayTopFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
   private readonly dayBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
@@ -83,7 +83,7 @@ export class TimelineComponent {
     this.rebuildWorkOrderGroups();
     this.workOrderForm = this.formBuilder.group({
       name: ['', [Validators.required, Validators.maxLength(80)]],
-      status: ['planned' as WorkOrderStatus, Validators.required],
+      status: ['open' as WorkOrderStatus, Validators.required],
       startsAtIso: ['', Validators.required],
       endsAtIso: ['', Validators.required]
     });
@@ -352,7 +352,7 @@ export class TimelineComponent {
     this.saveError = null;
     this.workOrderForm.reset({
       name: '',
-      status: 'planned',
+      status: 'open',
       startsAtIso: '',
       endsAtIso: ''
     });
@@ -505,6 +505,7 @@ export class TimelineComponent {
     return cols;
   }
 
+  // Map UTC day coordinates into the current zoom column pixel space.
   private utcDayToPx(utcDay: number): number {
     if (this.visibleColumns.length === 0) {
       return 0;
@@ -536,6 +537,7 @@ export class TimelineComponent {
     return new Date(utcDay * this.msPerDay);
   }
 
+  // Inverse mapping used for click-to-create so clicked pixels resolve to UTC day.
   private pxToUtcDay(px: number): number {
     if (this.visibleColumns.length === 0) {
       return 0;
@@ -589,7 +591,7 @@ export class TimelineComponent {
     this.saveError = null;
     this.workOrderForm.reset({
       name: '',
-      status: 'planned',
+      status: 'open',
       startsAtIso: startIso,
       endsAtIso: endIso
     });
@@ -663,6 +665,7 @@ export class TimelineComponent {
     endUtcDay: number,
     skipWorkOrderId: string | null
   ): WorkOrderDocument | null {
+    // Overlap validation is constrained to the same work center and skips the currently edited order.
     for (const existing of this.workOrders) {
       if (existing.workCenterId !== workCenterId) {
         continue;
