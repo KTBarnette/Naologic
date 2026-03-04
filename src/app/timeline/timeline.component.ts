@@ -86,7 +86,7 @@ export class TimelineComponent {
     return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
   }
 
-  private groupWorkOrdersByWorkCenterId(): Record<string, WorkOrderDocument[]> {
+  private groupWorkOrdersByWorkCenterId(): Partial<Record<string, WorkOrderDocument[]>> {
     const grouped: Record<string, WorkOrderDocument[]> = {};
     for (const workOrder of this.workOrders) {
       const existing = grouped[workOrder.workCenterId] ?? [];
