@@ -7,8 +7,10 @@ import { workCenters as sampleWorkCenters, workOrders as sampleWorkOrders } from
 import { generateWorkCenters, generateWorkOrders } from '../data/stress-documents';
 import { WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../types/docs';
 
+/** Supported timeline zoom levels. */
 type Timescale = 'day' | 'week' | 'month';
 
+/** Rendered timeline column metadata for header labels and date ranges. */
 type TimelineColumn = {
   key: string;
   startUtcDay: number;
@@ -18,16 +20,22 @@ type TimelineColumn = {
   containsToday: boolean;
 };
 
+/** Floating actions menu position + target work order id. */
 type ActionsMenuState = {
   workOrderId: string;
   leftPx: number;
   topPx: number;
 };
 
+/** URL flag for stress testing with generated data. */
 const STRESS_MODE = new URLSearchParams(globalThis.location?.search ?? '').has('stress');
+/** Size of stress-mode work center dataset. */
 const STRESS_WORK_CENTER_COUNT = 50;
+/** Size of stress-mode work order dataset. */
 const STRESS_WORK_ORDER_COUNT = 10000;
+/** Start date range used to generate stress-mode work orders. */
 const STRESS_RANGE_START_ISO = '2025-01-01';
+/** End date range used to generate stress-mode work orders. */
 const STRESS_RANGE_END_ISO = '2027-12-31';
 
 @Component({
@@ -79,6 +87,7 @@ export class TimelineComponent {
   overlapErrorText: string | null = null;
   readonly workOrderForm;
 
+  /** Initializes datasets, form controls, derived state, and timeline columns. */
   constructor(private readonly formBuilder: FormBuilder) {
     if (STRESS_MODE) {
       this.workCenters = generateWorkCenters(STRESS_WORK_CENTER_COUNT);
@@ -106,6 +115,7 @@ export class TimelineComponent {
     this.rebuildColumns();
   }
 
+  /** Returns active timeline column width in pixels based on selected timescale. */
   get colWidthPx(): number {
     if (this.timescale === 'week') {
       return this.weekColWidthPx;
@@ -116,6 +126,7 @@ export class TimelineComponent {
     return this.dayColWidthPx;
   }
 
+  /** Changes timeline timescale and rebuilds visible columns when needed. */
   setTimescale(next: string): void {
     if (next !== 'day' && next !== 'week' && next !== 'month') {
       return;
@@ -127,27 +138,32 @@ export class TimelineComponent {
     this.rebuildColumns();
   }
 
+  /** TrackBy function for timeline columns to avoid unnecessary re-renders. */
   trackByCol(_: number, col: TimelineColumn): string {
     return col.key;
   }
 
+  /** Pixel offset of current local time within the UTC-based timeline axis. */
   get todayOffsetPx(): number {
     const now = new Date();
     const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
     return this.utcDayToPx(nowLocalDayFloat);
   }
 
+  /** Left pixel offset for a work-order bar from its start date. */
   barLeftPx(workOrder: WorkOrderDocument): number {
     const orderStartDay = this.isoToUtcDay(workOrder.startsAtIso);
     return this.utcDayToPx(orderStartDay);
   }
 
+  /** Width of a work-order bar in pixels including the end day. */
   barWidthPx(workOrder: WorkOrderDocument): number {
     const startUtcDay = this.isoToUtcDay(workOrder.startsAtIso);
     const endExclusiveUtcDay = this.isoToUtcDay(workOrder.endsAtIso) + 1;
     return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
   }
 
+  /** Returns work orders for one center, filtered to visible timeline range. */
   visibleWorkOrdersForCenter(centerId: string): WorkOrderDocument[] {
     const grouped = this.workOrdersByWorkCenterId[centerId] ?? [];
     if (this.visibleColumns.length === 0) {
@@ -162,14 +178,17 @@ export class TimelineComponent {
     });
   }
 
+  /** Side panel title shown in both create and edit mode. */
   get panelTitle(): string {
     return 'Work Order Details';
   }
 
+  /** Save button state derived from form validity and custom validations. */
   get canSave(): boolean {
     return this.workOrderForm.valid && !this.dateRangeErrorText && !this.overlapErrorText;
   }
 
+  /** Opens create panel by translating click position to a start date. */
   onTimelineRowClick(event: MouseEvent, workCenterId: string): void {
     this.closeActionsMenu();
     if (this.visibleColumns.length === 0) {
@@ -189,12 +208,14 @@ export class TimelineComponent {
     this.openCreatePanel(workCenterId, startIso);
   }
 
+  /** Opens edit panel when a work-order bar is clicked. */
   onWorkOrderClick(event: MouseEvent, workOrder: WorkOrderDocument): void {
     event.stopPropagation();
     this.closeActionsMenu();
     this.openEditPanel(workOrder);
   }
 
+  /** Keyboard activation for work-order bars (Enter/Space). */
   onWorkOrderKeydown(event: KeyboardEvent, workOrder: WorkOrderDocument): void {
     if (event.key !== 'Enter' && event.key !== ' ') {
       return;
@@ -205,6 +226,7 @@ export class TimelineComponent {
     this.openEditPanel(workOrder);
   }
 
+  /** Toggles floating actions menu anchored to a work-order kebab button. */
   onWorkOrderActionsToggle(event: MouseEvent, workOrderId: string): void {
     event.stopPropagation();
     const kebabButton = event.currentTarget as HTMLElement | null;
@@ -231,6 +253,7 @@ export class TimelineComponent {
     };
   }
 
+  /** Opens editor from actions menu for selected work order. */
   onActionsMenuEdit(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -246,6 +269,7 @@ export class TimelineComponent {
     this.openEditPanel(wo);
   }
 
+  /** Deletes selected work order from the actions menu. */
   onActionsMenuDelete(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -257,7 +281,7 @@ export class TimelineComponent {
     this.deleteWorkOrderById(id);
   }
 
-  // Scroll timeline horizontally so "today" sits near the viewport center.
+  /** Scrolls timeline so today's position is close to viewport center. */
   scrollToToday(): void {
     const timelinePanel = this.timelineScrollPanelRef?.nativeElement;
     if (!timelinePanel) {
@@ -268,6 +292,7 @@ export class TimelineComponent {
     timelinePanel.scrollTo({ left: Math.min(maxScrollLeft, Math.max(0, target)), behavior: 'smooth' });
   }
 
+  /** Closes actions menu when clicking anywhere outside of it. */
   @HostListener('document:mousedown', ['$event'])
   onDocumentMouseDown(event: MouseEvent): void {
     if (!this.actionsMenu) {
@@ -280,6 +305,7 @@ export class TimelineComponent {
     this.closeActionsMenu();
   }
 
+  /** Opens panel in edit mode and hydrates form from work-order data. */
   private openEditPanel(workOrder: WorkOrderDocument): void {
     if (this.DEBUG_FREEZE) {
       console.log('[freeze-debug] openEditPanel workOrderId:', workOrder.id);
@@ -303,6 +329,7 @@ export class TimelineComponent {
     }
   }
 
+  /** Shows row hover hint unless pointer is over interactive row content. */
   onTimelineRowHover(event: MouseEvent, workCenterId: string): void {
     if (this.isHoveringInteractiveElement(event) || this.actionsMenu) {
       if (this.hoverWorkCenterId === workCenterId) {
@@ -314,26 +341,31 @@ export class TimelineComponent {
     this.updateHoverHintPosition(event);
   }
 
+  /** Clears row hover hint when leaving a timeline row. */
   onTimelineRowLeave(workCenterId: string): void {
     if (this.hoverWorkCenterId === workCenterId) {
       this.hoverWorkCenterId = null;
     }
   }
 
+  /** Syncs start datepicker selection into form ISO field. */
   onStartDatePicked(date: NgbDateStruct | null): void {
     this.workOrderForm.controls.startsAtIso.setValue(this.dateStructToIso(date));
     this.workOrderForm.controls.startsAtIso.markAsTouched();
   }
 
+  /** Syncs end datepicker selection into form ISO field. */
   onEndDatePicked(date: NgbDateStruct | null): void {
     this.workOrderForm.controls.endsAtIso.setValue(this.dateStructToIso(date));
     this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
+  /** Tooltip content for a work-order bar. */
   formatWorkOrderTooltip(workOrder: WorkOrderDocument): string {
     return `${workOrder.name}\n${workOrder.status}\n${workOrder.startsAtIso} -> ${workOrder.endsAtIso}`;
   }
 
+  /** Handles Escape key for dismissing menu first, then side panel. */
   @HostListener('document:keydown.escape')
   onEscapePressed(): void {
     if (this.actionsMenu) {
@@ -345,6 +377,7 @@ export class TimelineComponent {
     }
   }
 
+  /** Resets and closes the create/edit side panel. */
   closePanel(): void {
     this.panelOpen = false;
     this.panelMode = 'create';
@@ -363,6 +396,7 @@ export class TimelineComponent {
     this.workOrderForm.markAsUntouched();
   }
 
+  /** Creates or updates work order based on current panel mode. */
   saveWorkOrder(): void {
     this.workOrderForm.markAllAsTouched();
     this.saveError = null;
@@ -403,6 +437,7 @@ export class TimelineComponent {
     this.closePanel();
   }
 
+  /** Deletes work order currently being edited in side panel. */
   deleteWorkOrder(): void {
     if (!this.editingWorkOrderId) {
       return;
@@ -410,6 +445,7 @@ export class TimelineComponent {
     this.deleteWorkOrderById(this.editingWorkOrderId);
   }
 
+  /** Removes a work order by id and refreshes grouped timeline data. */
   deleteWorkOrderById(workOrderId: string): void {
     const index = this.workOrders.findIndex((item) => item.id === workOrderId);
     if (index < 0) {
@@ -424,6 +460,7 @@ export class TimelineComponent {
     this.closeActionsMenu();
   }
 
+  /** Rebuilds lookup map of work orders grouped by work center id. */
   private rebuildWorkOrderGroups(): void {
     const grouped: Record<string, WorkOrderDocument[]> = {};
     for (const workOrder of this.workOrders) {
@@ -435,6 +472,7 @@ export class TimelineComponent {
     this.scheduleValidationRecompute();
   }
 
+  /** Recomputes timeline columns for current timescale. */
   private rebuildColumns(): void {
     const todayUtcDay = this.toUtcDay(new Date());
 
@@ -449,6 +487,7 @@ export class TimelineComponent {
     this.visibleColumns = this.buildDayColumns(todayUtcDay);
   }
 
+  /** Builds +/-14 day columns around today. */
   private buildDayColumns(todayUtcDay: number): TimelineColumn[] {
     const cols: TimelineColumn[] = [];
     for (let offset = -14; offset <= 14; offset += 1) {
@@ -466,6 +505,7 @@ export class TimelineComponent {
     return cols;
   }
 
+  /** Builds +/-8 week columns around current week. */
   private buildWeekColumns(todayUtcDay: number): TimelineColumn[] {
     const cols: TimelineColumn[] = [];
     const currentWeekStartUtcDay = this.startOfWeekUtcDay(todayUtcDay);
@@ -486,6 +526,7 @@ export class TimelineComponent {
     return cols;
   }
 
+  /** Builds +/-6 month columns around current month. */
   private buildMonthColumns(todayUtcDay: number): TimelineColumn[] {
     const today = new Date();
     const baseYear = today.getFullYear();
@@ -509,7 +550,7 @@ export class TimelineComponent {
     return cols;
   }
 
-  // Map UTC day coordinates into the current zoom column pixel space.
+  /** Converts UTC day value to X position in current column scale. */
   private utcDayToPx(utcDay: number): number {
     if (this.visibleColumns.length === 0) {
       return 0;
@@ -537,11 +578,12 @@ export class TimelineComponent {
     return (colIndex + fractionWithinColumn) * this.colWidthPx;
   }
 
+  /** Converts UTC day number to UTC date object. */
   private utcDayToDate(utcDay: number): Date {
     return new Date(utcDay * this.msPerDay);
   }
 
-  // Inverse mapping used for click-to-create so clicked pixels resolve to UTC day.
+  /** Converts X pixel coordinate back to fractional UTC day. */
   private pxToUtcDay(px: number): number {
     if (this.visibleColumns.length === 0) {
       return 0;
@@ -556,23 +598,27 @@ export class TimelineComponent {
     return col.startUtcDay + fractionWithinCol * (col.endUtcDay - col.startUtcDay);
   }
 
+  /** Returns Monday-based start-of-week UTC day for a given UTC day. */
   private startOfWeekUtcDay(utcDay: number): number {
     const dow = this.utcDayToDate(utcDay).getUTCDay();
     const daysSinceMonday = (dow + 6) % 7;
     return utcDay - daysSinceMonday;
   }
 
+  /** Returns elapsed fraction of local current day. */
   private localDayFraction(now: Date): number {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const elapsedMs = now.getTime() - startOfDay.getTime();
     return elapsedMs / this.msPerDay;
   }
 
+  /** Parses ISO date string (YYYY-MM-DD) to UTC day number. */
   private isoToUtcDay(isoDate: string): number {
     const [year, month, day] = isoDate.split('-').map(Number);
     return Date.UTC(year, month - 1, day) / this.msPerDay;
   }
 
+  /** Formats UTC day number to ISO date string (YYYY-MM-DD). */
   private utcDayToIso(utcDay: number): string {
     const d = this.utcDayToDate(utcDay);
     const yyyy = d.getUTCFullYear();
@@ -581,10 +627,12 @@ export class TimelineComponent {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  /** Converts local calendar date to corresponding UTC day index. */
   private toUtcDay(d: Date): number {
     return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / this.msPerDay;
   }
 
+  /** Opens side panel in create mode with default 7-day date window. */
   private openCreatePanel(workCenterId: string, startIso: string): void {
     const endIso = this.addDaysToIso(startIso, 7);
     this.panelMode = 'create';
@@ -602,6 +650,7 @@ export class TimelineComponent {
     this.recomputeDerivedFormState();
   }
 
+  /** Repositions hover hint pill relative to cursor location in row. */
   private updateHoverHintPosition(event: MouseEvent): void {
     if (this.visibleColumns.length === 0) {
       this.hoverHintLeftPx = 0;
@@ -617,6 +666,7 @@ export class TimelineComponent {
     this.hoverHintLeftPx = x;
   }
 
+  /** Detects whether pointer is currently over row interactive controls. */
   private isHoveringInteractiveElement(event: MouseEvent): boolean {
     const target = event.target as Element | null;
     if (!target) {
@@ -630,14 +680,17 @@ export class TimelineComponent {
     );
   }
 
+  /** Closes floating work-order actions menu. */
   private closeActionsMenu(): void {
     this.actionsMenu = null;
   }
 
+  /** Finds work order by id, returning null when absent. */
   private findWorkOrderById(id: string): WorkOrderDocument | null {
     return this.workOrders.find((w) => w.id === id) ?? null;
   }
 
+  /** Queues a single microtask to recompute form-derived validation state. */
   private scheduleValidationRecompute(): void {
     if (this.validationRecomputeQueued) {
       return;
@@ -649,6 +702,7 @@ export class TimelineComponent {
     });
   }
 
+  /** Recomputes datepicker models and custom validation error text. */
   private recomputeDerivedFormState(): void {
     const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
     const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
@@ -671,6 +725,7 @@ export class TimelineComponent {
     this.overlapErrorText = this.computeOverlapErrorText(startsAtIso, endsAtIso);
   }
 
+  /** Validates start/end date ordering for current form values. */
   private computeDateRangeErrorText(startsAtIso: string, endsAtIso: string): string | null {
     if (this.DEBUG_FREEZE) {
       this.debugDateRangeComputeCount += 1;
@@ -689,6 +744,7 @@ export class TimelineComponent {
     return null;
   }
 
+  /** Validates work-order overlap conflicts within the same work center. */
   private computeOverlapErrorText(startsAtIso: string, endsAtIso: string): string | null {
     if (this.DEBUG_FREEZE) {
       this.debugOverlapComputeCount += 1;
@@ -711,6 +767,7 @@ export class TimelineComponent {
     return `Overlaps with "${overlap.name}" (${overlap.startsAtIso} to ${overlap.endsAtIso}).`;
   }
 
+  /** Converts ISO date string to ng-bootstrap date struct. */
   private isoToDateStruct(iso: string): NgbDateStruct | null {
     const [year, month, day] = iso.split('-').map(Number);
     if (!year || !month || !day) {
@@ -719,6 +776,7 @@ export class TimelineComponent {
     return { year, month, day };
   }
 
+  /** Converts ng-bootstrap date struct to ISO date string. */
   private dateStructToIso(date: NgbDateStruct | null): string {
     if (!date) {
       return '';
@@ -729,21 +787,23 @@ export class TimelineComponent {
     return `${yyyy}-${mm}-${dd}`;
   }
 
+  /** Adds whole days to ISO date string and returns resulting ISO date. */
   private addDaysToIso(iso: string, days: number): string {
     return this.utcDayToIso(this.isoToUtcDay(iso) + days);
   }
 
+  /** Resolves work center name from id, falling back to id when missing. */
   private findWorkCenterName(workCenterId: string): string {
     return this.workCenters.find((center) => center.id === workCenterId)?.name ?? workCenterId;
   }
 
+  /** Finds first overlapping work order in a center, excluding optional id. */
   private findOverlap(
     workCenterId: string,
     startUtcDay: number,
     endUtcDay: number,
     skipWorkOrderId: string | null
   ): WorkOrderDocument | null {
-    // Overlap validation is constrained to one work center and skips the currently edited order.
     const centerWorkOrders = this.workOrdersByWorkCenterId[workCenterId] ?? [];
     for (const existing of centerWorkOrders) {
       if (skipWorkOrderId && existing.id === skipWorkOrderId) {
@@ -759,6 +819,7 @@ export class TimelineComponent {
     return null;
   }
 
+  /** Generates next numeric work-order id in `wo-0000` format. */
   private nextWorkOrderId(): string {
     let maxId = 0;
     for (const workOrder of this.workOrders) {

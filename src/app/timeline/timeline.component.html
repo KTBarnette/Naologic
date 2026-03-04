@@ -1,4 +1,6 @@
+<!-- Timeline Shell: fixed work-center column + horizontally scrollable timeline -->
 <section class="timeline-layout">
+  <!-- Work Center Column Header + Rows -->
   <aside class="work-centers-panel">
     <div class="panel-header">Work Centers</div>
 
@@ -7,7 +9,9 @@
     }
   </aside>
 
+  <!-- Timeline Panel: toolbar, date grid, bars, and contextual actions -->
   <div #timelineScrollPanel class="timeline-panel">
+    <!-- Toolbar: scale switcher + jump-to-today action -->
     <div class="timeline-toolbar">
       <label for="timescale-select">Scale</label>
       <select
@@ -23,11 +27,12 @@
     </div>
 
 
+    <!-- Grid Wrapper: header row + one data row per work center -->
     <div class="timeline-grid">
-      <!-- Today vertical indicator -->
+      <!-- Visual marker for current day/time position -->
       <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
 
-      <!-- Header -->
+      <!-- Timeline Header Columns (day/week/month labels) -->
       <div class="timeline-header-row" [style.--col-w.px]="colWidthPx">
         @for (col of visibleColumns; track trackByCol($index, col)) {
           <div
@@ -40,7 +45,7 @@
         }
       </div>
 
-      <!-- Rows -->
+      <!-- Data Rows: click-to-create cells + rendered work-order bars -->
       @for (center of workCenters; track center.id) {
         <div
           class="timeline-data-row"
@@ -58,9 +63,11 @@
           }
 
           @if (hoverWorkCenterId === center.id && !actionsMenu) {
+            <!-- Inline helper shown on row hover to signal click-to-create -->
             <span class="row-hover-pill" [style.left.px]="hoverHintLeftPx">Click to add dates</span>
           }
 
+          <!-- Layer that contains absolutely positioned work-order bars -->
           <div class="work-order-layer">
             @for (workOrder of visibleWorkOrdersForCenter(center.id); track workOrder.id) {
               <div
@@ -77,6 +84,7 @@
                 <span class="status-badge" [class]="'status-badge status-' + workOrder.status">
                   {{ workOrder.status }}
                 </span>
+                <!-- Per-bar overflow menu trigger -->
                 <span class="work-order-actions" (click)="$event.stopPropagation()">
                   <button
                     type="button"
@@ -96,6 +104,7 @@
     </div>
 
     @if (actionsMenu) {
+      <!-- Floating context menu anchored to active work-order kebab -->
       <div
         class="floating-actions-menu"
         [style.left.px]="actionsMenu.leftPx"
@@ -111,6 +120,7 @@
   </div>
 </section>
 
+<!-- Page overlay for side panel -->
 <button
   type="button"
   class="panel-backdrop"
@@ -119,6 +129,7 @@
   (click)="closePanel()"
   aria-label="Close panel"
 ></button>
+<!-- Create/Edit Side Panel -->
 <aside
   class="work-order-panel"
   [class.is-open]="panelOpen"
@@ -127,6 +138,7 @@
   [attr.aria-hidden]="!panelOpen"
   aria-label="Work order editor"
 >
+  <!-- Side Panel Header -->
   <header class="panel-title-row">
     <div>
       <h2 class="panel-title">{{ panelTitle }}</h2>
@@ -134,6 +146,7 @@
     <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
   </header>
 
+  <!-- Work Order Create/Edit Form -->
   <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
     <div class="field">
       <span>Work Center</span>
@@ -173,6 +186,7 @@
       ></ngb-datepicker>
     </div>
 
+    <!-- Validation and save error messages -->
     @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
       <p class="form-error">Name is required.</p>
     }
@@ -186,6 +200,7 @@
       <p class="form-error">{{ saveError }}</p>
     }
 
+    <!-- Panel action buttons -->
     <div class="panel-actions">
       @if (panelMode === 'edit') {
         <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>

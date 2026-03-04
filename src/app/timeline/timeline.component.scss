@@ -1,3 +1,4 @@
+/* Timeline Component Styles: layout, timeline grid, bars, and side panel. */
 :host {
   /* Layout */
   --left-col-w: 380px;
@@ -151,6 +152,7 @@
   background: #f6f8fc;
 }
 
+/* Optional diagnostic strip used during freeze/debug profiling. */
 .debug-line {
   padding: 6px 12px;
   font-size: 12px;
@@ -479,6 +481,7 @@
   pointer-events: auto;
 }
 
+/* Panel header row with title and close action. */
 .panel-title-row {
   display: flex;
   align-items: flex-start;
@@ -514,6 +517,7 @@
   cursor: pointer;
 }
 
+/* Form field layout and base inputs. */
 .work-order-form {
   padding: 16px 18px 20px;
   display: grid;
@@ -553,6 +557,7 @@
   color: var(--text-main);
 }
 
+/* ng-select control overrides scoped to this component. */
 :host ::ng-deep .ng-select .ng-select-container {
   min-height: 36px;
   border: 1px solid #d0d9e4;
@@ -566,6 +571,7 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
 }
 
+/* ng-bootstrap datepicker shell overrides. */
 :host ::ng-deep ngb-datepicker {
   border: 1px solid #d0d9e4;
   border-radius: 12px;
@@ -578,6 +584,7 @@
   color: #b42318;
 }
 
+/* Footer action area (delete/cancel/save). */
 .panel-actions {
   display: flex;
   justify-content: flex-end;
