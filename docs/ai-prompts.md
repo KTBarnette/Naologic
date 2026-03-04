@@ -71,3 +71,7 @@
   - Kebab actions per bar with Edit/Delete
   - Single floating overlay menu positioned from kebab coordinates
   - Menu closes on outside click or Esc and stays above bars/grid
+
+### Debugging Note
+
+During development, clicking "Edit" caused the UI to freeze due to expensive validation logic executing repeatedly during Angular change detection. Instrumentation was added to isolate the issue, and the validation logic was refactored to avoid repeated O(n) scans of work orders, restoring responsiveness even in stress mode.
