@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { workCenters, workOrders } from '../data/sample-documents';
-import { WorkOrderDocument } from '../types/docs';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { workCenters as sampleWorkCenters, workOrders as sampleWorkOrders } from '../data/sample-documents';
+import { generateWorkCenters, generateWorkOrders } from '../data/stress-documents';
+import { WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../types/docs';
 
 type Timescale = 'day' | 'week' | 'month';
 
@@ -14,33 +16,66 @@ type TimelineColumn = {
   containsToday: boolean;
 };
 
+const STRESS_MODE = new URLSearchParams(globalThis.location?.search ?? '').has('stress');
+const STRESS_WORK_CENTER_COUNT = 50;
+const STRESS_WORK_ORDER_COUNT = 10000;
+const STRESS_RANGE_START_ISO = '2025-01-01';
+const STRESS_RANGE_END_ISO = '2027-12-31';
+
 @Component({
   selector: 'app-timeline',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './timeline.component.html',
   styleUrls: ['./timeline.component.scss']
 })
 export class TimelineComponent {
-  readonly workCenters = workCenters;
-  readonly workOrders = workOrders;
+  readonly workCenters: WorkCenterDocument[];
+  readonly workOrders: WorkOrderDocument[];
 
   readonly dayColWidthPx = 84;
   readonly weekColWidthPx = 168;
   readonly monthColWidthPx = 224;
   readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
+  readonly statusOptions: WorkOrderStatus[] = ['planned', 'in-progress', 'completed', 'on-hold'];
   private readonly msPerDay = 1000 * 60 * 60 * 24;
   private readonly dayTopFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
   private readonly dayBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   private readonly weekTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   private readonly monthTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
   private readonly monthBottomFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' });
+  private workOrdersByWorkCenterId: Partial<Record<string, WorkOrderDocument[]>> = {};
 
   timescale: Timescale = 'day';
   visibleColumns: TimelineColumn[] = [];
-  readonly workOrdersByWorkCenterId = this.groupWorkOrdersByWorkCenterId();
+  panelOpen = false;
+  panelMode: 'create' | 'edit' = 'create';
+  panelWorkCenterId = '';
+  panelWorkCenterName = '';
+  editingWorkOrderId: string | null = null;
+  saveError: string | null = null;
+  readonly workOrderForm;
 
-  constructor() {
+  constructor(private readonly formBuilder: FormBuilder) {
+    if (STRESS_MODE) {
+      this.workCenters = generateWorkCenters(STRESS_WORK_CENTER_COUNT);
+      this.workOrders = generateWorkOrders(
+        STRESS_WORK_ORDER_COUNT,
+        this.workCenters,
+        STRESS_RANGE_START_ISO,
+        STRESS_RANGE_END_ISO
+      );
+    } else {
+      this.workCenters = [...sampleWorkCenters];
+      this.workOrders = [...sampleWorkOrders];
+    }
+    this.rebuildWorkOrderGroups();
+    this.workOrderForm = this.formBuilder.group({
+      name: ['', [Validators.required, Validators.maxLength(80)]],
+      status: ['planned' as WorkOrderStatus, Validators.required],
+      startsAtIso: ['', Validators.required],
+      endsAtIso: ['', Validators.required]
+    });
     this.rebuildColumns();
   }
 
@@ -86,14 +121,172 @@ export class TimelineComponent {
     return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
   }
 
-  private groupWorkOrdersByWorkCenterId(): Partial<Record<string, WorkOrderDocument[]>> {
+  visibleWorkOrdersForCenter(centerId: string): WorkOrderDocument[] {
+    const grouped = this.workOrdersByWorkCenterId[centerId] ?? [];
+    if (this.visibleColumns.length === 0) {
+      return grouped;
+    }
+    const rangeStartUtcDay = this.visibleColumns[0].startUtcDay;
+    const rangeEndUtcDay = this.visibleColumns[this.visibleColumns.length - 1].endUtcDay - 1;
+    return grouped.filter((workOrder) => {
+      const orderStartUtcDay = this.isoToUtcDay(workOrder.startsAtIso);
+      const orderEndUtcDay = this.isoToUtcDay(workOrder.endsAtIso);
+      return orderEndUtcDay >= rangeStartUtcDay && orderStartUtcDay <= rangeEndUtcDay;
+    });
+  }
+
+  get panelTitle(): string {
+    return this.panelMode === 'create' ? 'Create Work Order' : 'Edit Work Order';
+  }
+
+  get formDateRangeError(): string | null {
+    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
+    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
+    if (!startsAtIso || !endsAtIso) {
+      return null;
+    }
+    if (this.isoToUtcDay(endsAtIso) < this.isoToUtcDay(startsAtIso)) {
+      return 'End date must be on or after start date.';
+    }
+    return null;
+  }
+
+  get overlapError(): string | null {
+    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
+    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
+    if (!this.panelWorkCenterId || !startsAtIso || !endsAtIso) {
+      return null;
+    }
+    if (this.formDateRangeError) {
+      return null;
+    }
+
+    const startUtcDay = this.isoToUtcDay(startsAtIso);
+    const endUtcDay = this.isoToUtcDay(endsAtIso);
+    const overlap = this.findOverlap(this.panelWorkCenterId, startUtcDay, endUtcDay, this.editingWorkOrderId);
+
+    if (!overlap) {
+      return null;
+    }
+    return `Overlaps with "${overlap.name}" (${overlap.startsAtIso} to ${overlap.endsAtIso}).`;
+  }
+
+  get canSave(): boolean {
+    return this.workOrderForm.valid && !this.formDateRangeError && !this.overlapError;
+  }
+
+  onTimelineRowClick(event: MouseEvent, workCenterId: string): void {
+    if (this.visibleColumns.length === 0) {
+      return;
+    }
+
+    const rowElement = event.currentTarget as HTMLElement | null;
+    if (!rowElement) {
+      return;
+    }
+
+    const rect = rowElement.getBoundingClientRect();
+    const rowWidth = this.visibleColumns.length * this.colWidthPx;
+    const px = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth - 1);
+    const utcDay = Math.floor(this.pxToUtcDay(px));
+    const startIso = this.utcDayToIso(utcDay);
+    this.openCreatePanel(workCenterId, startIso);
+  }
+
+  onWorkOrderClick(event: MouseEvent, workOrder: WorkOrderDocument): void {
+    event.stopPropagation();
+    this.panelMode = 'edit';
+    this.panelOpen = true;
+    this.editingWorkOrderId = workOrder.id;
+    this.panelWorkCenterId = workOrder.workCenterId;
+    this.panelWorkCenterName = this.findWorkCenterName(workOrder.workCenterId);
+    this.saveError = null;
+    this.workOrderForm.reset({
+      name: workOrder.name,
+      status: workOrder.status,
+      startsAtIso: workOrder.startsAtIso,
+      endsAtIso: workOrder.endsAtIso
+    });
+  }
+
+  closePanel(): void {
+    this.panelOpen = false;
+    this.panelMode = 'create';
+    this.panelWorkCenterId = '';
+    this.panelWorkCenterName = '';
+    this.editingWorkOrderId = null;
+    this.saveError = null;
+    this.workOrderForm.reset({
+      name: '',
+      status: 'planned',
+      startsAtIso: '',
+      endsAtIso: ''
+    });
+    this.workOrderForm.markAsPristine();
+    this.workOrderForm.markAsUntouched();
+  }
+
+  saveWorkOrder(): void {
+    this.workOrderForm.markAllAsTouched();
+    this.saveError = null;
+
+    if (!this.canSave || !this.panelWorkCenterId) {
+      return;
+    }
+
+    const raw = this.workOrderForm.getRawValue();
+    const payload = {
+      workCenterId: this.panelWorkCenterId,
+      name: (raw.name ?? '').trim(),
+      status: raw.status as WorkOrderStatus,
+      startsAtIso: raw.startsAtIso ?? '',
+      endsAtIso: raw.endsAtIso ?? ''
+    };
+
+    if (!payload.name) {
+      this.saveError = 'Name is required.';
+      return;
+    }
+
+    if (this.panelMode === 'edit' && this.editingWorkOrderId) {
+      const index = this.workOrders.findIndex((item) => item.id === this.editingWorkOrderId);
+      if (index < 0) {
+        this.saveError = 'Work order not found.';
+        return;
+      }
+      this.workOrders[index] = { ...this.workOrders[index], ...payload };
+    } else {
+      this.workOrders.push({
+        id: this.nextWorkOrderId(),
+        ...payload
+      });
+    }
+
+    this.rebuildWorkOrderGroups();
+    this.closePanel();
+  }
+
+  deleteWorkOrder(): void {
+    if (!this.editingWorkOrderId) {
+      return;
+    }
+    const index = this.workOrders.findIndex((item) => item.id === this.editingWorkOrderId);
+    if (index < 0) {
+      return;
+    }
+    this.workOrders.splice(index, 1);
+    this.rebuildWorkOrderGroups();
+    this.closePanel();
+  }
+
+  private rebuildWorkOrderGroups(): void {
     const grouped: Record<string, WorkOrderDocument[]> = {};
     for (const workOrder of this.workOrders) {
       const existing = grouped[workOrder.workCenterId] ?? [];
       existing.push(workOrder);
       grouped[workOrder.workCenterId] = existing;
     }
-    return grouped;
+    this.workOrdersByWorkCenterId = grouped;
   }
 
   private rebuildColumns(): void {
@@ -201,6 +394,20 @@ export class TimelineComponent {
     return new Date(utcDay * this.msPerDay);
   }
 
+  private pxToUtcDay(px: number): number {
+    if (this.visibleColumns.length === 0) {
+      return 0;
+    }
+    const colIndex = Math.min(
+      this.visibleColumns.length - 1,
+      Math.max(0, Math.floor(px / this.colWidthPx))
+    );
+    const col = this.visibleColumns[colIndex];
+    const colStartPx = colIndex * this.colWidthPx;
+    const fractionWithinCol = (px - colStartPx) / this.colWidthPx;
+    return col.startUtcDay + fractionWithinCol * (col.endUtcDay - col.startUtcDay);
+  }
+
   private startOfWeekUtcDay(utcDay: number): number {
     const dow = this.utcDayToDate(utcDay).getUTCDay();
     const daysSinceMonday = (dow + 6) % 7;
@@ -218,7 +425,68 @@ export class TimelineComponent {
     return Date.UTC(year, month - 1, day) / this.msPerDay;
   }
 
+  private utcDayToIso(utcDay: number): string {
+    const d = this.utcDayToDate(utcDay);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   private toUtcDay(d: Date): number {
     return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / this.msPerDay;
+  }
+
+  private openCreatePanel(workCenterId: string, startIso: string): void {
+    this.panelMode = 'create';
+    this.panelOpen = true;
+    this.editingWorkOrderId = null;
+    this.panelWorkCenterId = workCenterId;
+    this.panelWorkCenterName = this.findWorkCenterName(workCenterId);
+    this.saveError = null;
+    this.workOrderForm.reset({
+      name: '',
+      status: 'planned',
+      startsAtIso: startIso,
+      endsAtIso: startIso
+    });
+  }
+
+  private findWorkCenterName(workCenterId: string): string {
+    return this.workCenters.find((center) => center.id === workCenterId)?.name ?? workCenterId;
+  }
+
+  private findOverlap(
+    workCenterId: string,
+    startUtcDay: number,
+    endUtcDay: number,
+    skipWorkOrderId: string | null
+  ): WorkOrderDocument | null {
+    for (const existing of this.workOrders) {
+      if (existing.workCenterId !== workCenterId) {
+        continue;
+      }
+      if (skipWorkOrderId && existing.id === skipWorkOrderId) {
+        continue;
+      }
+      const existingStart = this.isoToUtcDay(existing.startsAtIso);
+      const existingEnd = this.isoToUtcDay(existing.endsAtIso);
+      const overlaps = !(endUtcDay < existingStart || startUtcDay > existingEnd);
+      if (overlaps) {
+        return existing;
+      }
+    }
+    return null;
+  }
+
+  private nextWorkOrderId(): string {
+    let maxId = 0;
+    for (const workOrder of this.workOrders) {
+      const parsed = Number(workOrder.id.replace(/^wo-/, ''));
+      if (Number.isFinite(parsed) && parsed > maxId) {
+        maxId = parsed;
+      }
+    }
+    return `wo-${String(maxId + 1).padStart(4, '0')}`;
   }
 }

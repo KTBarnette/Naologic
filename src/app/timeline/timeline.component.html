@@ -41,7 +41,11 @@
 
       <!-- Rows -->
       @for (center of workCenters; track center.id) {
-        <div class="timeline-data-row" [style.--col-w.px]="colWidthPx">
+        <div
+          class="timeline-data-row"
+          [style.--col-w.px]="colWidthPx"
+          (click)="onTimelineRowClick($event, center.id)"
+        >
           @for (col of visibleColumns; track trackByCol($index, col)) {
             <div
               class="timeline-data-cell"
@@ -50,12 +54,13 @@
           }
 
           <div class="work-order-layer">
-            @for (workOrder of workOrdersByWorkCenterId[center.id] ?? []; track workOrder.id) {
+            @for (workOrder of visibleWorkOrdersForCenter(center.id); track workOrder.id) {
               <button
                 type="button"
                 class="work-order-bar"
                 [style.left.px]="barLeftPx(workOrder)"
                 [style.width.px]="barWidthPx(workOrder)"
+                (click)="onWorkOrderClick($event, workOrder)"
               >
                 <span class="work-order-name">{{ workOrder.name }}</span>
                 <span class="status-badge" [class]="'status-badge status-' + workOrder.status">
@@ -69,3 +74,62 @@
     </div>
   </div>
 </section>
+
+@if (panelOpen) {
+  <button type="button" class="panel-backdrop" (click)="closePanel()" aria-label="Close panel"></button>
+  <aside class="work-order-panel" role="dialog" aria-modal="true" aria-label="Work order editor">
+    <header class="panel-title-row">
+      <div>
+        <h2 class="panel-title">{{ panelTitle }}</h2>
+        <p class="panel-subtitle">{{ panelWorkCenterName }}</p>
+      </div>
+      <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
+    </header>
+
+    <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
+      <label class="field">
+        <span>Name</span>
+        <input type="text" formControlName="name" maxlength="80" />
+      </label>
+      <label class="field">
+        <span>Status</span>
+        <select formControlName="status">
+          @for (status of statusOptions; track status) {
+            <option [value]="status">{{ status | titlecase }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Start Date (UTC)</span>
+        <input type="date" formControlName="startsAtIso" />
+      </label>
+      <label class="field">
+        <span>End Date (UTC)</span>
+        <input type="date" formControlName="endsAtIso" />
+      </label>
+
+      @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
+        <p class="form-error">Name is required.</p>
+      }
+      @if (formDateRangeError) {
+        <p class="form-error">{{ formDateRangeError }}</p>
+      }
+      @if (overlapError) {
+        <p class="form-error">{{ overlapError }}</p>
+      }
+      @if (saveError) {
+        <p class="form-error">{{ saveError }}</p>
+      }
+
+      <div class="panel-actions">
+        @if (panelMode === 'edit') {
+          <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>
+        }
+        <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="!canSave">
+          {{ panelMode === 'create' ? 'Create' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  </aside>
+}

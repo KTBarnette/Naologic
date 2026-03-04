@@ -46,3 +46,57 @@ Codex reported Phase 4 implemented via SCSS only:
 - Avoided doubled borders
 
 Next: verify selectors match DOM and confirm computed sizes in DevTools.
+
+## Phase 5 — Codex timeline refactor (Day / Week / Month)
+
+Codex implemented timeline zoom support with minimal structural changes:
+- Introduced `timescale` state: `'day' | 'week' | 'month'`
+- Replaced `visibleDates` with generalized `visibleColumns`
+- Added column builders centered on today:
+  - Day view: ±14 days
+  - Week view: ±8 weeks (7-day columns)
+  - Month view: ±6 months (calendar month columns)
+- Added `colWidthPx` getter to scale column width by zoom level (84 / 168 / 224)
+- Updated work-order positioning math to use shared `utcDay → pixel` conversion
+- Implemented inclusive end-date handling (`endUtcDay + 1`)
+- Added minimal timescale selector using `(change)="setTimescale(($any($event.target)).value)"`
+- Applied `--col-w` CSS variable to control column widths across header and grid cells
+
+Runtime fixes applied:
+- Ensured `visibleColumns` is initialized via `rebuildColumns()` in constructor
+- Typed grouped orders as `Partial<Record<string, WorkOrderDocument[]>>` to allow safe template fallback
+- Bound `--col-w` directly on timeline rows to guarantee CSS inheritance
+
+Result:
+- Timeline renders correctly
+- Day / Week / Month switching updates column layout and bar scaling
+- Today indicator and work-order bars remain correctly positioned
+
+Next: implement Create Work Order slide-out panel triggered by clicking empty timeline cells.
+
+## Phase 5 — Codex Timescale switching (Day/Week/Month)
+
+Codex implemented timescale switching by introducing a generalized “column” abstraction:
+- Added `Timescale = 'day' | 'week' | 'month'`
+- Replaced `visibleDates` with `visibleColumns` containing labels + boundaries
+- Implemented day/week/month column builders centered on today
+- Updated bar positioning and today indicator to work against columns
+- Updated template loops to render `visibleColumns` and added a minimal `<select>` to switch timescale
+- Minor SCSS updates to support the selector and column-width variable
+
+Next: validate week/month labels against Sketch, and ensure performance by filtering rendered work orders to only those intersecting the visible range.
+
+## Phase 6 — Codex Stress Mode + Rendering Optimization
+
+Codex implemented a runtime stress dataset to test scalability.
+
+- Added deterministic data generator (`stress-documents.ts`)
+- Implemented `generateWorkCenters()` and `generateWorkOrders()` with seeded RNG
+- Stress mode activated via `?stress` URL parameter
+- Stress configuration:
+  - 50 work centers
+  - 10,000 work orders
+- Added visible-range filtering (`visibleWorkOrdersForCenter`) to avoid rendering offscreen bars
+- Introduced cached grouping (`workOrdersByWorkCenterId`) to avoid recomputation
+
+Next: polish create/edit panel behavior and finalize UI details.
