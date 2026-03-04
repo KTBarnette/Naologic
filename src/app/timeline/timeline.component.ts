@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, HostListener } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NgbDatepickerModule, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NgSelectModule } from '@ng-select/ng-select';
 import { workCenters as sampleWorkCenters, workOrders as sampleWorkOrders } from '../data/sample-documents';
 import { generateWorkCenters, generateWorkOrders } from '../data/stress-documents';
 import { WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../types/docs';
@@ -25,7 +27,7 @@ const STRESS_RANGE_END_ISO = '2027-12-31';
 @Component({
   selector: 'app-timeline',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule, NgbDatepickerModule],
   templateUrl: './timeline.component.html',
   styleUrls: ['./timeline.component.scss']
 })
@@ -54,6 +56,8 @@ export class TimelineComponent {
   panelWorkCenterName = '';
   editingWorkOrderId: string | null = null;
   saveError: string | null = null;
+  hoverWorkCenterId: string | null = null;
+  hoverHintLeftPx = 0;
   readonly workOrderForm;
 
   constructor(private readonly formBuilder: FormBuilder) {
@@ -136,7 +140,15 @@ export class TimelineComponent {
   }
 
   get panelTitle(): string {
-    return this.panelMode === 'create' ? 'Create Work Order' : 'Edit Work Order';
+    return 'Work Order Details';
+  }
+
+  get startDateStruct(): NgbDateStruct | null {
+    return this.isoToDateStruct(this.workOrderForm.controls.startsAtIso.value ?? '');
+  }
+
+  get endDateStruct(): NgbDateStruct | null {
+    return this.isoToDateStruct(this.workOrderForm.controls.endsAtIso.value ?? '');
   }
 
   get formDateRangeError(): string | null {
@@ -207,6 +219,34 @@ export class TimelineComponent {
       startsAtIso: workOrder.startsAtIso,
       endsAtIso: workOrder.endsAtIso
     });
+  }
+
+  onTimelineRowHover(event: MouseEvent, workCenterId: string): void {
+    this.hoverWorkCenterId = workCenterId;
+    this.updateHoverHintPosition(event);
+  }
+
+  onTimelineRowLeave(workCenterId: string): void {
+    if (this.hoverWorkCenterId === workCenterId) {
+      this.hoverWorkCenterId = null;
+    }
+  }
+
+  onStartDatePicked(date: NgbDateStruct | null): void {
+    this.workOrderForm.controls.startsAtIso.setValue(this.dateStructToIso(date));
+    this.workOrderForm.controls.startsAtIso.markAsTouched();
+  }
+
+  onEndDatePicked(date: NgbDateStruct | null): void {
+    this.workOrderForm.controls.endsAtIso.setValue(this.dateStructToIso(date));
+    this.workOrderForm.controls.endsAtIso.markAsTouched();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapePressed(): void {
+    if (this.panelOpen) {
+      this.closePanel();
+    }
   }
 
   closePanel(): void {
@@ -438,6 +478,7 @@ export class TimelineComponent {
   }
 
   private openCreatePanel(workCenterId: string, startIso: string): void {
+    const endIso = this.addDaysToIso(startIso, 7);
     this.panelMode = 'create';
     this.panelOpen = true;
     this.editingWorkOrderId = null;
@@ -448,8 +489,45 @@ export class TimelineComponent {
       name: '',
       status: 'planned',
       startsAtIso: startIso,
-      endsAtIso: startIso
+      endsAtIso: endIso
     });
+  }
+
+  private updateHoverHintPosition(event: MouseEvent): void {
+    if (this.visibleColumns.length === 0) {
+      this.hoverHintLeftPx = 0;
+      return;
+    }
+    const rowElement = event.currentTarget as HTMLElement | null;
+    if (!rowElement) {
+      return;
+    }
+    const rect = rowElement.getBoundingClientRect();
+    const rowWidth = this.visibleColumns.length * this.colWidthPx;
+    const x = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth);
+    this.hoverHintLeftPx = x;
+  }
+
+  private isoToDateStruct(iso: string): NgbDateStruct | null {
+    const [year, month, day] = iso.split('-').map(Number);
+    if (!year || !month || !day) {
+      return null;
+    }
+    return { year, month, day };
+  }
+
+  private dateStructToIso(date: NgbDateStruct | null): string {
+    if (!date) {
+      return '';
+    }
+    const yyyy = String(date.year).padStart(4, '0');
+    const mm = String(date.month).padStart(2, '0');
+    const dd = String(date.day).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  private addDaysToIso(iso: string, days: number): string {
+    return this.utcDayToIso(this.isoToUtcDay(iso) + days);
   }
 
   private findWorkCenterName(workCenterId: string): string {

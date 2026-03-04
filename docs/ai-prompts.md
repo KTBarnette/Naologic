@@ -100,3 +100,19 @@ Codex implemented a runtime stress dataset to test scalability.
 - Introduced cached grouping (`workOrdersByWorkCenterId`) to avoid recomputation
 
 Next: polish create/edit panel behavior and finalize UI details.
+
+## Phase 7 – Create/Edit Panel + Hover Affordance (Codex)
+
+**Purpose:** Implement the interactive create/edit workflow for work orders including the slide-out panel, hover affordance, and required form controls.
+
+- Prompt summary:
+  > Asked Codex to implement the create/edit workflow within the existing timeline component: add a “Click to add dates” hover affordance on empty timeline rows, implement a right-side slide-out **Work Order Details** panel using **Reactive Forms**, replace status inputs with **ng-select**, replace date inputs with **ngb-datepicker**, preserve ISO date storage, add ESC and scrim-close behavior, and ensure overlap detection prevents invalid saves.
+
+- Outcome:
+  - Added hover affordance pill (“Click to add dates”) that follows the cursor on empty timeline rows
+  - Implemented a right-side slide-out **Work Order Details** panel with scrim and ESC-to-close behavior
+  - Unified **Create** and **Edit** flows using a single panel and reactive form
+  - Integrated **ng-select** for status and **ngb-datepicker** for start/end date inputs
+  - Added helper converters to map between ISO dates and datepicker structures
+  - Defaulted new work orders to **start date from click position + end date = start + 7 days**
+  - Preserved validation logic including **required fields, date range validation, and overlap detection** to block invalid saves

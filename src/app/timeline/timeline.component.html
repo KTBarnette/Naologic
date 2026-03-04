@@ -45,12 +45,19 @@
           class="timeline-data-row"
           [style.--col-w.px]="colWidthPx"
           (click)="onTimelineRowClick($event, center.id)"
+          (mouseenter)="onTimelineRowHover($event, center.id)"
+          (mousemove)="onTimelineRowHover($event, center.id)"
+          (mouseleave)="onTimelineRowLeave(center.id)"
         >
           @for (col of visibleColumns; track trackByCol($index, col)) {
             <div
               class="timeline-data-cell"
               [class.is-today]="col.containsToday"
             ></div>
+          }
+
+          @if (hoverWorkCenterId === center.id) {
+            <span class="row-hover-pill" [style.left.px]="hoverHintLeftPx">Click to add dates</span>
           }
 
           <div class="work-order-layer">
@@ -81,32 +88,48 @@
     <header class="panel-title-row">
       <div>
         <h2 class="panel-title">{{ panelTitle }}</h2>
-        <p class="panel-subtitle">{{ panelWorkCenterName }}</p>
       </div>
       <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
     </header>
 
     <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
+      <div class="field">
+        <span>Work Center</span>
+        <p class="readonly-value">{{ panelWorkCenterName }}</p>
+      </div>
       <label class="field">
-        <span>Name</span>
+        <span>Work Order Name</span>
         <input type="text" formControlName="name" maxlength="80" />
       </label>
       <label class="field">
         <span>Status</span>
-        <select formControlName="status">
-          @for (status of statusOptions; track status) {
-            <option [value]="status">{{ status | titlecase }}</option>
-          }
-        </select>
+        <ng-select
+          formControlName="status"
+          [items]="statusOptions"
+          [clearable]="false"
+          [searchable]="false"
+          [placeholder]="'Select status'"
+        >
+          <ng-template ng-option-tmp let-item="item">{{ item | titlecase }}</ng-template>
+          <ng-template ng-label-tmp let-item="item">{{ item | titlecase }}</ng-template>
+        </ng-select>
       </label>
-      <label class="field">
-        <span>Start Date (UTC)</span>
-        <input type="date" formControlName="startsAtIso" />
-      </label>
-      <label class="field">
-        <span>End Date (UTC)</span>
-        <input type="date" formControlName="endsAtIso" />
-      </label>
+      <div class="field">
+        <span>Start Date</span>
+        <ngb-datepicker
+          [ngModel]="startDateStruct"
+          (ngModelChange)="onStartDatePicked($event)"
+          [ngModelOptions]="{ standalone: true }"
+        ></ngb-datepicker>
+      </div>
+      <div class="field">
+        <span>End Date</span>
+        <ngb-datepicker
+          [ngModel]="endDateStruct"
+          (ngModelChange)="onEndDatePicked($event)"
+          [ngModelOptions]="{ standalone: true }"
+        ></ngb-datepicker>
+      </div>
 
       @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
         <p class="form-error">Name is required.</p>
