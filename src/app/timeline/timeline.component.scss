@@ -78,6 +78,34 @@
   background: var(--panel-bg);
 }
 
+.timeline-toolbar {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-bottom: var(--grid-line-width) solid var(--grid-line-color);
+  background: var(--panel-bg);
+}
+
+.timeline-toolbar label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.timeline-toolbar select {
+  height: 24px;
+  font-size: 12px;
+}
+
+.debug-line {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-bottom: var(--grid-line-width) solid var(--grid-line-color);
+  background: var(--panel-bg);
+}
+
 /* Grid expands based on number of columns */
 .timeline-grid {
   position: relative;

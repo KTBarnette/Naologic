@@ -3,6 +3,17 @@ import { Component } from '@angular/core';
 import { workCenters, workOrders } from '../data/sample-documents';
 import { WorkOrderDocument } from '../types/docs';
 
+type Timescale = 'day' | 'week' | 'month';
+
+type TimelineColumn = {
+  key: string;
+  startUtcDay: number;
+  endUtcDay: number;
+  topLabel: string;
+  bottomLabel: string;
+  containsToday: boolean;
+};
+
 @Component({
   selector: 'app-timeline',
   standalone: true,
@@ -14,68 +25,65 @@ export class TimelineComponent {
   readonly workCenters = workCenters;
   readonly workOrders = workOrders;
 
-  // Phase 2: Day view range centered on today (±2 weeks)
   readonly dayColWidthPx = 84;
-  readonly dayRangeBefore = 14;
-  readonly dayRangeAfter = 14;
+  readonly weekColWidthPx = 168;
+  readonly monthColWidthPx = 224;
+  readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
   private readonly msPerDay = 1000 * 60 * 60 * 24;
+  private readonly dayTopFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+  private readonly dayBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  private readonly weekTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  private readonly monthTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+  private readonly monthBottomFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' });
 
-  readonly today = this.startOfDay(new Date());
-  readonly rangeStart = this.addDays(this.today, -this.dayRangeBefore);
-  readonly rangeEnd = this.addDays(this.today, this.dayRangeAfter);
-  private readonly rangeStartDay = this.toUtcDay(this.rangeStart);
-
-  readonly visibleDates: Date[] = this.buildVisibleDates();
+  timescale: Timescale = 'day';
+  visibleColumns: TimelineColumn[] = [];
   readonly workOrdersByWorkCenterId = this.groupWorkOrdersByWorkCenterId();
 
-  private buildVisibleDates(): Date[] {
-    const dates: Date[] = [];
-    let cur = new Date(this.rangeStart);
-    while (cur <= this.rangeEnd) {
-      dates.push(new Date(cur));
-      cur = this.addDays(cur, 1);
+  constructor() {
+    this.rebuildColumns();
+  }
+
+  get colWidthPx(): number {
+    if (this.timescale === 'week') {
+      return this.weekColWidthPx;
     }
-    return dates;
+    if (this.timescale === 'month') {
+      return this.monthColWidthPx;
+    }
+    return this.dayColWidthPx;
   }
 
-  private startOfDay(d: Date): Date {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  setTimescale(next: string): void {
+    if (next !== 'day' && next !== 'week' && next !== 'month') {
+      return;
+    }
+    if (this.timescale === next) {
+      return;
+    }
+    this.timescale = next;
+    this.rebuildColumns();
   }
 
-  private addDays(d: Date, days: number): Date {
-    const copy = new Date(d);
-    copy.setDate(copy.getDate() + days);
-    return copy;
-  }
-
-  isToday(d: Date): boolean {
-    return (
-      d.getFullYear() === this.today.getFullYear() &&
-      d.getMonth() === this.today.getMonth() &&
-      d.getDate() === this.today.getDate()
-    );
+  trackByCol(_: number, col: TimelineColumn): string {
+    return col.key;
   }
 
   get todayOffsetPx(): number {
-    const daysFromStart = Math.round((this.today.getTime() - this.rangeStart.getTime()) / this.msPerDay);
-    return daysFromStart * this.dayColWidthPx;
-  }
-
-  trackByIso(_: number, d: Date): string {
-    return d.toISOString().slice(0, 10);
+    const now = new Date();
+    const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
+    return this.utcDayToPx(nowLocalDayFloat);
   }
 
   barLeftPx(workOrder: WorkOrderDocument): number {
     const orderStartDay = this.isoToUtcDay(workOrder.startsAtIso);
-    return (orderStartDay - this.rangeStartDay) * this.dayColWidthPx;
+    return this.utcDayToPx(orderStartDay);
   }
 
-  // End dates are treated as inclusive, so we add one full day when calculating pixel width.
   barWidthPx(workOrder: WorkOrderDocument): number {
-    const orderStartDay = this.isoToUtcDay(workOrder.startsAtIso);
-    const orderEndDay = this.isoToUtcDay(workOrder.endsAtIso);
-    const daySpan = orderEndDay - orderStartDay + 1;
-    return daySpan * this.dayColWidthPx;
+    const startUtcDay = this.isoToUtcDay(workOrder.startsAtIso);
+    const endExclusiveUtcDay = this.isoToUtcDay(workOrder.endsAtIso) + 1;
+    return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
   }
 
   private groupWorkOrdersByWorkCenterId(): Record<string, WorkOrderDocument[]> {
@@ -86,6 +94,123 @@ export class TimelineComponent {
       grouped[workOrder.workCenterId] = existing;
     }
     return grouped;
+  }
+
+  private rebuildColumns(): void {
+    const todayUtcDay = this.toUtcDay(new Date());
+
+    if (this.timescale === 'week') {
+      this.visibleColumns = this.buildWeekColumns(todayUtcDay);
+      return;
+    }
+    if (this.timescale === 'month') {
+      this.visibleColumns = this.buildMonthColumns(todayUtcDay);
+      return;
+    }
+    this.visibleColumns = this.buildDayColumns(todayUtcDay);
+  }
+
+  private buildDayColumns(todayUtcDay: number): TimelineColumn[] {
+    const cols: TimelineColumn[] = [];
+    for (let offset = -14; offset <= 14; offset += 1) {
+      const startUtcDay = todayUtcDay + offset;
+      const endUtcDay = startUtcDay + 1;
+      cols.push({
+        key: `d-${startUtcDay}`,
+        startUtcDay,
+        endUtcDay,
+        topLabel: this.dayTopFormatter.format(this.utcDayToDate(startUtcDay)),
+        bottomLabel: this.dayBottomFormatter.format(this.utcDayToDate(startUtcDay)),
+        containsToday: startUtcDay <= todayUtcDay && todayUtcDay < endUtcDay
+      });
+    }
+    return cols;
+  }
+
+  private buildWeekColumns(todayUtcDay: number): TimelineColumn[] {
+    const cols: TimelineColumn[] = [];
+    const currentWeekStartUtcDay = this.startOfWeekUtcDay(todayUtcDay);
+    for (let offset = -8; offset <= 8; offset += 1) {
+      const startUtcDay = currentWeekStartUtcDay + offset * 7;
+      const endUtcDay = startUtcDay + 7;
+      const start = this.utcDayToDate(startUtcDay);
+      const endInclusive = this.utcDayToDate(endUtcDay - 1);
+      cols.push({
+        key: `w-${startUtcDay}`,
+        startUtcDay,
+        endUtcDay,
+        topLabel: this.weekTopFormatter.format(start),
+        bottomLabel: this.weekTopFormatter.format(endInclusive),
+        containsToday: startUtcDay <= todayUtcDay && todayUtcDay < endUtcDay
+      });
+    }
+    return cols;
+  }
+
+  private buildMonthColumns(todayUtcDay: number): TimelineColumn[] {
+    const today = new Date();
+    const baseYear = today.getFullYear();
+    const baseMonth = today.getMonth();
+    const cols: TimelineColumn[] = [];
+
+    for (let offset = -6; offset <= 6; offset += 1) {
+      const monthStartUtc = Date.UTC(baseYear, baseMonth + offset, 1) / this.msPerDay;
+      const nextMonthStartUtc = Date.UTC(baseYear, baseMonth + offset + 1, 1) / this.msPerDay;
+      const monthStartDate = this.utcDayToDate(monthStartUtc);
+      cols.push({
+        key: `m-${monthStartUtc}`,
+        startUtcDay: monthStartUtc,
+        endUtcDay: nextMonthStartUtc,
+        topLabel: this.monthTopFormatter.format(monthStartDate),
+        bottomLabel: this.monthBottomFormatter.format(monthStartDate),
+        containsToday: monthStartUtc <= todayUtcDay && todayUtcDay < nextMonthStartUtc
+      });
+    }
+
+    return cols;
+  }
+
+  private utcDayToPx(utcDay: number): number {
+    if (this.visibleColumns.length === 0) {
+      return 0;
+    }
+
+    const first = this.visibleColumns[0];
+    const last = this.visibleColumns[this.visibleColumns.length - 1];
+    if (utcDay <= first.startUtcDay) {
+      return 0;
+    }
+    if (utcDay >= last.endUtcDay) {
+      return this.visibleColumns.length * this.colWidthPx;
+    }
+
+    const colIndex = this.visibleColumns.findIndex(
+      (col) => utcDay >= col.startUtcDay && utcDay < col.endUtcDay
+    );
+    if (colIndex < 0) {
+      return 0;
+    }
+
+    const col = this.visibleColumns[colIndex];
+    const colSpanDays = col.endUtcDay - col.startUtcDay;
+    const fractionWithinColumn = (utcDay - col.startUtcDay) / colSpanDays;
+    return (colIndex + fractionWithinColumn) * this.colWidthPx;
+  }
+
+  private utcDayToDate(utcDay: number): Date {
+    return new Date(utcDay * this.msPerDay);
+  }
+
+  private startOfWeekUtcDay(utcDay: number): number {
+    const dow = this.utcDayToDate(utcDay).getUTCDay();
+    const daysSinceMonday = (dow + 6) % 7;
+    return utcDay - daysSinceMonday;
+  }
+
+  private localDayFraction(now: Date): number {
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const elapsedMs = now.getTime() - startOfDay.getTime();
+    return elapsedMs / this.msPerDay;
   }
 
   private isoToUtcDay(isoDate: string): number {

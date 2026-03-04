@@ -8,32 +8,44 @@
   </aside>
 
   <div class="timeline-panel">
+    <div class="timeline-toolbar">
+      <label for="timescale-select">Scale</label>
+      <select
+        id="timescale-select"
+        [value]="timescale"
+        (change)="setTimescale(($any($event.target)).value)"
+      >
+        @for (option of timescaleOptions; track option) {
+          <option [value]="option">{{ option | titlecase }}</option>
+        }
+      </select>
+    </div>
+
+
     <div class="timeline-grid">
       <!-- Today vertical indicator -->
       <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
 
       <!-- Header -->
-      <div class="timeline-header-row">
-        @for (d of visibleDates; track trackByIso($index, d)) {
+      <div class="timeline-header-row" [style.--col-w.px]="colWidthPx">
+        @for (col of visibleColumns; track trackByCol($index, col)) {
           <div
             class="timeline-header-cell"
-            [style.width.px]="dayColWidthPx"
-            [class.is-today]="isToday(d)"
+            [class.is-today]="col.containsToday"
           >
-            <div class="header-dow">{{ d | date: 'EEE' }}</div>
-            <div class="header-date">{{ d | date: 'MMM d' }}</div>
+            <div class="header-dow">{{ col.topLabel }}</div>
+            <div class="header-date">{{ col.bottomLabel }}</div>
           </div>
         }
       </div>
 
       <!-- Rows -->
       @for (center of workCenters; track center.id) {
-        <div class="timeline-data-row">
-          @for (d of visibleDates; track trackByIso($index, d)) {
+        <div class="timeline-data-row" [style.--col-w.px]="colWidthPx">
+          @for (col of visibleColumns; track trackByCol($index, col)) {
             <div
               class="timeline-data-cell"
-              [style.width.px]="dayColWidthPx"
-              [class.is-today]="isToday(d)"
+              [class.is-today]="col.containsToday"
             ></div>
           }
 
