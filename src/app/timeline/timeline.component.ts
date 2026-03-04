@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgbDatepickerModule, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
@@ -38,6 +38,7 @@ const STRESS_RANGE_END_ISO = '2027-12-31';
   styleUrls: ['./timeline.component.scss']
 })
 export class TimelineComponent {
+  readonly DEBUG_FREEZE = false;
   readonly workCenters: WorkCenterDocument[];
   readonly workOrders: WorkOrderDocument[];
 
@@ -53,6 +54,12 @@ export class TimelineComponent {
   private readonly monthTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
   private readonly monthBottomFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' });
   private workOrdersByWorkCenterId: Partial<Record<string, WorkOrderDocument[]>> = {};
+  private validationRecomputeQueued = false;
+  private readonly debugStartedAtMs = globalThis.performance.now();
+  private debugOverlapComputeCount = 0;
+  private debugDateRangeComputeCount = 0;
+  private debugStartDateStructCount = 0;
+  private debugEndDateStructCount = 0;
 
   timescale: Timescale = 'day';
   visibleColumns: TimelineColumn[] = [];
@@ -65,6 +72,11 @@ export class TimelineComponent {
   hoverWorkCenterId: string | null = null;
   hoverHintLeftPx = 0;
   actionsMenu: ActionsMenuState | null = null;
+  @ViewChild('timelineScrollPanel') private readonly timelineScrollPanelRef?: ElementRef<HTMLElement>;
+  startDateStructValue: NgbDateStruct | null = null;
+  endDateStructValue: NgbDateStruct | null = null;
+  dateRangeErrorText: string | null = null;
+  overlapErrorText: string | null = null;
   readonly workOrderForm;
 
   constructor(private readonly formBuilder: FormBuilder) {
@@ -87,6 +99,10 @@ export class TimelineComponent {
       startsAtIso: ['', Validators.required],
       endsAtIso: ['', Validators.required]
     });
+    this.workOrderForm.valueChanges.subscribe(() => {
+      this.scheduleValidationRecompute();
+    });
+    this.recomputeDerivedFormState();
     this.rebuildColumns();
   }
 
@@ -150,48 +166,8 @@ export class TimelineComponent {
     return 'Work Order Details';
   }
 
-  get startDateStruct(): NgbDateStruct | null {
-    return this.isoToDateStruct(this.workOrderForm.controls.startsAtIso.value ?? '');
-  }
-
-  get endDateStruct(): NgbDateStruct | null {
-    return this.isoToDateStruct(this.workOrderForm.controls.endsAtIso.value ?? '');
-  }
-
-  get formDateRangeError(): string | null {
-    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
-    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
-    if (!startsAtIso || !endsAtIso) {
-      return null;
-    }
-    if (this.isoToUtcDay(endsAtIso) < this.isoToUtcDay(startsAtIso)) {
-      return 'End date must be on or after start date.';
-    }
-    return null;
-  }
-
-  get overlapError(): string | null {
-    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
-    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
-    if (!this.panelWorkCenterId || !startsAtIso || !endsAtIso) {
-      return null;
-    }
-    if (this.formDateRangeError) {
-      return null;
-    }
-
-    const startUtcDay = this.isoToUtcDay(startsAtIso);
-    const endUtcDay = this.isoToUtcDay(endsAtIso);
-    const overlap = this.findOverlap(this.panelWorkCenterId, startUtcDay, endUtcDay, this.editingWorkOrderId);
-
-    if (!overlap) {
-      return null;
-    }
-    return `Overlaps with "${overlap.name}" (${overlap.startsAtIso} to ${overlap.endsAtIso}).`;
-  }
-
   get canSave(): boolean {
-    return this.workOrderForm.valid && !this.formDateRangeError && !this.overlapError;
+    return this.workOrderForm.valid && !this.dateRangeErrorText && !this.overlapErrorText;
   }
 
   onTimelineRowClick(event: MouseEvent, workCenterId: string): void {
@@ -255,42 +231,60 @@ export class TimelineComponent {
     };
   }
 
-  onFloatingActionsEdit(event: MouseEvent): void {
+  onActionsMenuEdit(event: MouseEvent): void {
+    event.preventDefault();
     event.stopPropagation();
-    if (!this.actionsMenu) {
+    const id = this.actionsMenu?.workOrderId;
+    this.actionsMenu = null;
+    if (!id) {
       return;
     }
-    const workOrder = this.findWorkOrderById(this.actionsMenu.workOrderId);
-    this.closeActionsMenu();
-    if (!workOrder) {
+    const wo = this.workOrders.find((w) => w.id === id);
+    if (!wo) {
       return;
     }
-    this.openEditPanel(workOrder);
+    this.openEditPanel(wo);
   }
 
-  onFloatingActionsDelete(event: MouseEvent): void {
+  onActionsMenuDelete(event: MouseEvent): void {
+    event.preventDefault();
     event.stopPropagation();
-    if (!this.actionsMenu) {
+    const id = this.actionsMenu?.workOrderId;
+    this.actionsMenu = null;
+    if (!id) {
       return;
     }
-    const workOrderId = this.actionsMenu.workOrderId;
-    this.closeActionsMenu();
-    this.deleteWorkOrderById(workOrderId);
+    this.deleteWorkOrderById(id);
   }
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
+  // Scroll timeline horizontally so "today" sits near the viewport center.
+  scrollToToday(): void {
+    const timelinePanel = this.timelineScrollPanelRef?.nativeElement;
+    if (!timelinePanel) {
+      return;
+    }
+    const maxScrollLeft = Math.max(0, timelinePanel.scrollWidth - timelinePanel.clientWidth);
+    const target = this.todayOffsetPx - timelinePanel.clientWidth / 2;
+    timelinePanel.scrollTo({ left: Math.min(maxScrollLeft, Math.max(0, target)), behavior: 'smooth' });
+  }
+
+  @HostListener('document:mousedown', ['$event'])
+  onDocumentMouseDown(event: MouseEvent): void {
     if (!this.actionsMenu) {
       return;
     }
     const target = event.target as Element | null;
-    if (target?.closest('.work-order-actions') || target?.closest('.floating-actions-menu')) {
+    if (target?.closest('.floating-actions-menu') || target?.closest('.work-order-kebab')) {
       return;
     }
     this.closeActionsMenu();
   }
 
   private openEditPanel(workOrder: WorkOrderDocument): void {
+    if (this.DEBUG_FREEZE) {
+      console.log('[freeze-debug] openEditPanel workOrderId:', workOrder.id);
+      console.time('openEditPanel');
+    }
     this.panelMode = 'edit';
     this.panelOpen = true;
     this.editingWorkOrderId = workOrder.id;
@@ -303,6 +297,10 @@ export class TimelineComponent {
       startsAtIso: workOrder.startsAtIso,
       endsAtIso: workOrder.endsAtIso
     });
+    this.recomputeDerivedFormState();
+    if (this.DEBUG_FREEZE) {
+      console.timeEnd('openEditPanel');
+    }
   }
 
   onTimelineRowHover(event: MouseEvent, workCenterId: string): void {
@@ -332,6 +330,10 @@ export class TimelineComponent {
     this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
+  formatWorkOrderTooltip(workOrder: WorkOrderDocument): string {
+    return `${workOrder.name}\n${workOrder.status}\n${workOrder.startsAtIso} -> ${workOrder.endsAtIso}`;
+  }
+
   @HostListener('document:keydown.escape')
   onEscapePressed(): void {
     if (this.actionsMenu) {
@@ -356,6 +358,7 @@ export class TimelineComponent {
       startsAtIso: '',
       endsAtIso: ''
     });
+    this.recomputeDerivedFormState();
     this.workOrderForm.markAsPristine();
     this.workOrderForm.markAsUntouched();
   }
@@ -429,6 +432,7 @@ export class TimelineComponent {
       grouped[workOrder.workCenterId] = existing;
     }
     this.workOrdersByWorkCenterId = grouped;
+    this.scheduleValidationRecompute();
   }
 
   private rebuildColumns(): void {
@@ -595,6 +599,7 @@ export class TimelineComponent {
       startsAtIso: startIso,
       endsAtIso: endIso
     });
+    this.recomputeDerivedFormState();
   }
 
   private updateHoverHintPosition(event: MouseEvent): void {
@@ -629,8 +634,81 @@ export class TimelineComponent {
     this.actionsMenu = null;
   }
 
-  private findWorkOrderById(workOrderId: string): WorkOrderDocument | null {
-    return this.workOrders.find((workOrder) => workOrder.id === workOrderId) ?? null;
+  private findWorkOrderById(id: string): WorkOrderDocument | null {
+    return this.workOrders.find((w) => w.id === id) ?? null;
+  }
+
+  private scheduleValidationRecompute(): void {
+    if (this.validationRecomputeQueued) {
+      return;
+    }
+    this.validationRecomputeQueued = true;
+    queueMicrotask(() => {
+      this.validationRecomputeQueued = false;
+      this.recomputeDerivedFormState();
+    });
+  }
+
+  private recomputeDerivedFormState(): void {
+    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
+    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
+    this.startDateStructValue = this.isoToDateStruct(startsAtIso);
+    this.endDateStructValue = this.isoToDateStruct(endsAtIso);
+    if (this.DEBUG_FREEZE) {
+      this.debugStartDateStructCount += 1;
+      this.debugEndDateStructCount += 1;
+      if (this.debugStartDateStructCount % 200 === 0) {
+        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
+        console.log('[freeze-debug] startDateStruct recompute count:', this.debugStartDateStructCount, 'elapsedMs:', elapsed);
+      }
+      if (this.debugEndDateStructCount % 200 === 0) {
+        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
+        console.log('[freeze-debug] endDateStruct recompute count:', this.debugEndDateStructCount, 'elapsedMs:', elapsed);
+      }
+    }
+
+    this.dateRangeErrorText = this.computeDateRangeErrorText(startsAtIso, endsAtIso);
+    this.overlapErrorText = this.computeOverlapErrorText(startsAtIso, endsAtIso);
+  }
+
+  private computeDateRangeErrorText(startsAtIso: string, endsAtIso: string): string | null {
+    if (this.DEBUG_FREEZE) {
+      this.debugDateRangeComputeCount += 1;
+      if (this.debugDateRangeComputeCount % 200 === 0) {
+        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
+        console.log('[freeze-debug] formDateRangeError count:', this.debugDateRangeComputeCount, 'elapsedMs:', elapsed);
+      }
+    }
+
+    if (!startsAtIso || !endsAtIso) {
+      return null;
+    }
+    if (this.isoToUtcDay(endsAtIso) < this.isoToUtcDay(startsAtIso)) {
+      return 'End date must be on or after start date.';
+    }
+    return null;
+  }
+
+  private computeOverlapErrorText(startsAtIso: string, endsAtIso: string): string | null {
+    if (this.DEBUG_FREEZE) {
+      this.debugOverlapComputeCount += 1;
+      if (this.debugOverlapComputeCount % 50 === 0) {
+        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
+        console.log('[freeze-debug] overlapError count:', this.debugOverlapComputeCount, 'elapsedMs:', elapsed);
+      }
+    }
+
+    if (!this.panelWorkCenterId || !startsAtIso || !endsAtIso || this.dateRangeErrorText) {
+      return null;
+    }
+
+    const startUtcDay = this.isoToUtcDay(startsAtIso);
+    const endUtcDay = this.isoToUtcDay(endsAtIso);
+    const overlap = this.findOverlap(this.panelWorkCenterId, startUtcDay, endUtcDay, this.editingWorkOrderId);
+    if (!overlap) {
+      return null;
+    }
+    return `Overlaps with "${overlap.name}" (${overlap.startsAtIso} to ${overlap.endsAtIso}).`;
   }
 
   private isoToDateStruct(iso: string): NgbDateStruct | null {
@@ -665,11 +743,9 @@ export class TimelineComponent {
     endUtcDay: number,
     skipWorkOrderId: string | null
   ): WorkOrderDocument | null {
-    // Overlap validation is constrained to the same work center and skips the currently edited order.
-    for (const existing of this.workOrders) {
-      if (existing.workCenterId !== workCenterId) {
-        continue;
-      }
+    // Overlap validation is constrained to one work center and skips the currently edited order.
+    const centerWorkOrders = this.workOrdersByWorkCenterId[workCenterId] ?? [];
+    for (const existing of centerWorkOrders) {
       if (skipWorkOrderId && existing.id === skipWorkOrderId) {
         continue;
       }

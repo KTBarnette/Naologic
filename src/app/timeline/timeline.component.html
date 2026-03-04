@@ -7,7 +7,7 @@
     }
   </aside>
 
-  <div class="timeline-panel">
+  <div #timelineScrollPanel class="timeline-panel">
     <div class="timeline-toolbar">
       <label for="timescale-select">Scale</label>
       <select
@@ -19,6 +19,7 @@
           <option [value]="option">{{ option | titlecase }}</option>
         }
       </select>
+      <button type="button" class="today-btn" (click)="scrollToToday()">Today</button>
     </div>
 
 
@@ -66,6 +67,7 @@
                 class="work-order-bar"
                 role="button"
                 tabindex="0"
+                [attr.title]="formatWorkOrderTooltip(workOrder)"
                 [style.left.px]="barLeftPx(workOrder)"
                 [style.width.px]="barWidthPx(workOrder)"
                 (click)="onWorkOrderClick($event, workOrder)"
@@ -100,8 +102,8 @@
         [style.top.px]="actionsMenu.topPx"
         (click)="$event.stopPropagation()"
       >
-        <button type="button" class="work-order-menu-item" (click)="onFloatingActionsEdit($event)">Edit</button>
-        <button type="button" class="work-order-menu-item danger" (click)="onFloatingActionsDelete($event)">
+        <button type="button" class="work-order-menu-item" (mousedown)="onActionsMenuEdit($event)">Edit</button>
+        <button type="button" class="work-order-menu-item danger" (mousedown)="onActionsMenuDelete($event)">
           Delete
         </button>
       </div>
@@ -109,77 +111,89 @@
   </div>
 </section>
 
-@if (panelOpen) {
-  <button type="button" class="panel-backdrop" (click)="closePanel()" aria-label="Close panel"></button>
-  <aside class="work-order-panel" role="dialog" aria-modal="true" aria-label="Work order editor">
-    <header class="panel-title-row">
-      <div>
-        <h2 class="panel-title">{{ panelTitle }}</h2>
-      </div>
-      <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
-    </header>
+<button
+  type="button"
+  class="panel-backdrop"
+  [class.is-open]="panelOpen"
+  [attr.tabindex]="panelOpen ? '0' : '-1'"
+  (click)="closePanel()"
+  aria-label="Close panel"
+></button>
+<aside
+  class="work-order-panel"
+  [class.is-open]="panelOpen"
+  role="dialog"
+  [attr.aria-modal]="panelOpen ? 'true' : 'false'"
+  [attr.aria-hidden]="!panelOpen"
+  aria-label="Work order editor"
+>
+  <header class="panel-title-row">
+    <div>
+      <h2 class="panel-title">{{ panelTitle }}</h2>
+    </div>
+    <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
+  </header>
 
-    <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
-      <div class="field">
-        <span>Work Center</span>
-        <p class="readonly-value">{{ panelWorkCenterName }}</p>
-      </div>
-      <label class="field">
-        <span>Work Order Name</span>
-        <input type="text" formControlName="name" maxlength="80" />
-      </label>
-      <label class="field">
-        <span>Status</span>
-        <ng-select
-          formControlName="status"
-          [items]="statusOptions"
-          [clearable]="false"
-          [searchable]="false"
-          [placeholder]="'Select status'"
-        >
-          <ng-template ng-option-tmp let-item="item">{{ item | titlecase }}</ng-template>
-          <ng-template ng-label-tmp let-item="item">{{ item | titlecase }}</ng-template>
-        </ng-select>
-      </label>
-      <div class="field">
-        <span>Start Date</span>
-        <ngb-datepicker
-          [ngModel]="startDateStruct"
-          (ngModelChange)="onStartDatePicked($event)"
-          [ngModelOptions]="{ standalone: true }"
-        ></ngb-datepicker>
-      </div>
-      <div class="field">
-        <span>End Date</span>
-        <ngb-datepicker
-          [ngModel]="endDateStruct"
-          (ngModelChange)="onEndDatePicked($event)"
-          [ngModelOptions]="{ standalone: true }"
-        ></ngb-datepicker>
-      </div>
+  <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
+    <div class="field">
+      <span>Work Center</span>
+      <p class="readonly-value">{{ panelWorkCenterName }}</p>
+    </div>
+    <label class="field">
+      <span>Work Order Name</span>
+      <input type="text" formControlName="name" maxlength="80" />
+    </label>
+    <label class="field">
+      <span>Status</span>
+      <ng-select
+        formControlName="status"
+        [items]="statusOptions"
+        [clearable]="false"
+        [searchable]="false"
+        [placeholder]="'Select status'"
+      >
+        <ng-template ng-option-tmp let-item="item">{{ item | titlecase }}</ng-template>
+        <ng-template ng-label-tmp let-item="item">{{ item | titlecase }}</ng-template>
+      </ng-select>
+    </label>
+    <div class="field">
+      <span>Start Date</span>
+      <ngb-datepicker
+        [ngModel]="startDateStructValue"
+        (ngModelChange)="onStartDatePicked($event)"
+        [ngModelOptions]="{ standalone: true }"
+      ></ngb-datepicker>
+    </div>
+    <div class="field">
+      <span>End Date</span>
+      <ngb-datepicker
+        [ngModel]="endDateStructValue"
+        (ngModelChange)="onEndDatePicked($event)"
+        [ngModelOptions]="{ standalone: true }"
+      ></ngb-datepicker>
+    </div>
 
-      @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
-        <p class="form-error">Name is required.</p>
-      }
-      @if (formDateRangeError) {
-        <p class="form-error">{{ formDateRangeError }}</p>
-      }
-      @if (overlapError) {
-        <p class="form-error">{{ overlapError }}</p>
-      }
-      @if (saveError) {
-        <p class="form-error">{{ saveError }}</p>
-      }
+    @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
+      <p class="form-error">Name is required.</p>
+    }
+    @if (!DEBUG_FREEZE && dateRangeErrorText) {
+      <p class="form-error">{{ dateRangeErrorText }}</p>
+    }
+    @if (!DEBUG_FREEZE && overlapErrorText) {
+      <p class="form-error">{{ overlapErrorText }}</p>
+    }
+    @if (saveError) {
+      <p class="form-error">{{ saveError }}</p>
+    }
 
-      <div class="panel-actions">
-        @if (panelMode === 'edit') {
-          <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>
-        }
-        <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
-        <button type="submit" class="btn-primary" [disabled]="!canSave">
-          {{ panelMode === 'create' ? 'Create' : 'Save' }}
-        </button>
-      </div>
-    </form>
-  </aside>
-}
+    <div class="panel-actions">
+      @if (panelMode === 'edit') {
+        <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>
+      }
+      <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="!canSave">
+        {{ panelMode === 'create' ? 'Create' : 'Save' }}
+      </button>
+    </div>
+  </form>
+</aside>
