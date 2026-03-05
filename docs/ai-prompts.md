@@ -75,3 +75,14 @@
 ### Debugging Note
 
 During development, clicking "Edit" caused the UI to freeze due to expensive validation logic executing repeatedly during Angular change detection. Instrumentation was added to isolate the issue, and the validation logic was refactored to avoid repeated O(n) scans of work orders, restoring responsiveness even in stress mode.
+
+## Phase 9 – Technical Test Alignment (Codex)
+**Purpose:** Align implementation to the frontend technical test rubric.
+
+- Prompt summary:
+  > Update data contracts to `docId/docType/data`, enforce Day default timescale, restore dynamic today-centered columns, and ensure Create/Edit panel button text matches requirements.
+- Outcome:
+  - Data model now matches required document shape
+  - Sample data expanded to 5+ work centers and 8+ work orders with all statuses
+  - Create/Edit flows and overlap validation retained with updated schema
+  - Added Circular Std font include and updated README requirement coverage

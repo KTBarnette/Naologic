@@ -1,17 +1,23 @@
 export type WorkOrderStatus = 'open' | 'in-progress' | 'complete' | 'blocked';
 
 export interface WorkCenterDocument {
-  id: string;
-  name: string;
+  docId: string;
+  docType: 'workCenter';
+  data: {
+    name: string;
+  };
 }
 
 export interface WorkOrderDocument {
-  id: string;
-  workCenterId: string;
-  name: string;
-  status: WorkOrderStatus;
-  startsAtIso: string;
-  endsAtIso: string;
+  docId: string;
+  docType: 'workOrder';
+  data: {
+    name: string;
+    workCenterId: string;
+    status: WorkOrderStatus;
+    startDate: string;
+    endDate: string;
+  };
 }
 
 export type Document = WorkCenterDocument | WorkOrderDocument;

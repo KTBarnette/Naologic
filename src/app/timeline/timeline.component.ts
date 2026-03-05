@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgbDatepickerModule, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
@@ -45,7 +45,7 @@ const STRESS_RANGE_END_ISO = '2027-12-31';
   templateUrl: './timeline.component.html',
   styleUrls: ['./timeline.component.scss']
 })
-export class TimelineComponent {
+export class TimelineComponent implements AfterViewInit {
   readonly DEBUG_FREEZE = false;
   readonly workCenters: WorkCenterDocument[];
   readonly workOrders: WorkOrderDocument[];
@@ -55,19 +55,13 @@ export class TimelineComponent {
   readonly monthColWidthPx = 224;
   readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
   readonly statusOptions: WorkOrderStatus[] = ['open', 'in-progress', 'complete', 'blocked'];
+
   private readonly msPerDay = 1000 * 60 * 60 * 24;
   private readonly dayTopFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
   private readonly dayBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  private readonly weekTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  private readonly monthTopFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
-  private readonly monthBottomFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'UTC' });
+  private readonly weekFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  private readonly monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   private workOrdersByWorkCenterId: Partial<Record<string, WorkOrderDocument[]>> = {};
-  private validationRecomputeQueued = false;
-  private readonly debugStartedAtMs = globalThis.performance.now();
-  private debugOverlapComputeCount = 0;
-  private debugDateRangeComputeCount = 0;
-  private debugStartDateStructCount = 0;
-  private debugEndDateStructCount = 0;
 
   timescale: Timescale = 'day';
   visibleColumns: TimelineColumn[] = [];
@@ -80,14 +74,17 @@ export class TimelineComponent {
   hoverWorkCenterId: string | null = null;
   hoverHintLeftPx = 0;
   actionsMenu: ActionsMenuState | null = null;
+  timescaleMenuOpen = false;
+
   @ViewChild('timelineScrollPanel') private readonly timelineScrollPanelRef?: ElementRef<HTMLElement>;
+
   startDateStructValue: NgbDateStruct | null = null;
   endDateStructValue: NgbDateStruct | null = null;
   dateRangeErrorText: string | null = null;
   overlapErrorText: string | null = null;
+
   readonly workOrderForm;
 
-  /** Initializes datasets, form controls, derived state, and timeline columns. */
   constructor(private readonly formBuilder: FormBuilder) {
     if (STRESS_MODE) {
       this.workCenters = generateWorkCenters(STRESS_WORK_CENTER_COUNT);
@@ -98,21 +95,28 @@ export class TimelineComponent {
         STRESS_RANGE_END_ISO
       );
     } else {
-      this.workCenters = [...sampleWorkCenters];
-      this.workOrders = [...sampleWorkOrders];
+      this.workCenters = sampleWorkCenters.map((center) => ({ ...center, data: { ...center.data } }));
+      this.workOrders = sampleWorkOrders.map((order) => ({ ...order, data: { ...order.data } }));
     }
-    this.rebuildWorkOrderGroups();
+
     this.workOrderForm = this.formBuilder.group({
       name: ['', [Validators.required, Validators.maxLength(80)]],
       status: ['open' as WorkOrderStatus, Validators.required],
-      startsAtIso: ['', Validators.required],
-      endsAtIso: ['', Validators.required]
+      startDate: ['', Validators.required],
+      endDate: ['', Validators.required]
     });
+
     this.workOrderForm.valueChanges.subscribe(() => {
-      this.scheduleValidationRecompute();
+      this.recomputeDerivedFormState();
     });
-    this.recomputeDerivedFormState();
+
+    this.rebuildWorkOrderGroups();
     this.rebuildColumns();
+    this.recomputeDerivedFormState();
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => this.scrollToToday(false));
   }
 
   /** Returns active timeline column width in pixels based on selected timescale. */
@@ -126,16 +130,53 @@ export class TimelineComponent {
     return this.dayColWidthPx;
   }
 
-  /** Changes timeline timescale and rebuilds visible columns when needed. */
-  setTimescale(next: string): void {
-    if (next !== 'day' && next !== 'week' && next !== 'month') {
-      return;
+  /** Save button text based on current panel mode. */
+  get panelPrimaryActionLabel(): string {
+    return this.panelMode === 'edit' ? 'Save' : 'Create';
+  }
+
+  /** Side panel title shown in both create and edit mode. */
+  get panelTitle(): string {
+    return 'Work Order Details';
+  }
+
+  /** Label shown above the timeline indicator based on active timescale. */
+  get currentIndicatorLabel(): string {
+    if (this.timescale === 'month') {
+      return 'Current month';
     }
+    if (this.timescale === 'week') {
+      return 'Current week';
+    }
+    return 'Current day';
+  }
+
+  /** Save button state derived from form validity and custom validations. */
+  get canSave(): boolean {
+    return this.workOrderForm.valid && !this.dateRangeErrorText && !this.overlapErrorText;
+  }
+
+  /** Changes timeline timescale and rebuilds visible columns when needed. */
+  setTimescale(next: Timescale): void {
     if (this.timescale === next) {
+      this.timescaleMenuOpen = false;
       return;
     }
     this.timescale = next;
+    this.timescaleMenuOpen = false;
     this.rebuildColumns();
+    queueMicrotask(() => this.scrollToToday(false));
+  }
+
+  /** Returns human-readable label for timescale menu and trigger. */
+  timescaleLabel(timescale: Timescale): string {
+    return timescale.charAt(0).toUpperCase() + timescale.slice(1);
+  }
+
+  /** Toggles custom timescale menu. */
+  onTimescaleMenuToggle(event: MouseEvent): void {
+    event.stopPropagation();
+    this.timescaleMenuOpen = !this.timescaleMenuOpen;
   }
 
   /** TrackBy function for timeline columns to avoid unnecessary re-renders. */
@@ -152,40 +193,43 @@ export class TimelineComponent {
 
   /** Left pixel offset for a work-order bar from its start date. */
   barLeftPx(workOrder: WorkOrderDocument): number {
-    const orderStartDay = this.isoToUtcDay(workOrder.startsAtIso);
+    const orderStartDay = this.isoToUtcDay(workOrder.data.startDate);
     return this.utcDayToPx(orderStartDay);
   }
 
   /** Width of a work-order bar in pixels including the end day. */
   barWidthPx(workOrder: WorkOrderDocument): number {
-    const startUtcDay = this.isoToUtcDay(workOrder.startsAtIso);
-    const endExclusiveUtcDay = this.isoToUtcDay(workOrder.endsAtIso) + 1;
+    const startUtcDay = this.isoToUtcDay(workOrder.data.startDate);
+    const endExclusiveUtcDay = this.isoToUtcDay(workOrder.data.endDate) + 1;
     return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
   }
 
   /** Returns work orders for one center, filtered to visible timeline range. */
-  visibleWorkOrdersForCenter(centerId: string): WorkOrderDocument[] {
-    const grouped = this.workOrdersByWorkCenterId[centerId] ?? [];
+  visibleWorkOrdersForCenter(workCenterId: string): WorkOrderDocument[] {
+    const grouped = this.workOrdersByWorkCenterId[workCenterId] ?? [];
     if (this.visibleColumns.length === 0) {
       return grouped;
     }
     const rangeStartUtcDay = this.visibleColumns[0].startUtcDay;
     const rangeEndUtcDay = this.visibleColumns[this.visibleColumns.length - 1].endUtcDay - 1;
     return grouped.filter((workOrder) => {
-      const orderStartUtcDay = this.isoToUtcDay(workOrder.startsAtIso);
-      const orderEndUtcDay = this.isoToUtcDay(workOrder.endsAtIso);
+      const orderStartUtcDay = this.isoToUtcDay(workOrder.data.startDate);
+      const orderEndUtcDay = this.isoToUtcDay(workOrder.data.endDate);
       return orderEndUtcDay >= rangeStartUtcDay && orderStartUtcDay <= rangeEndUtcDay;
     });
   }
 
-  /** Side panel title shown in both create and edit mode. */
-  get panelTitle(): string {
-    return 'Work Order Details';
+  /** User-facing status label shown in ng-select and status badges. */
+  statusLabel(status: WorkOrderStatus): string {
+    if (status === 'in-progress') {
+      return 'In progress';
+    }
+    return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
-  /** Save button state derived from form validity and custom validations. */
-  get canSave(): boolean {
-    return this.workOrderForm.valid && !this.dateRangeErrorText && !this.overlapErrorText;
+  /** Work center display name used by template. */
+  workCenterName(workCenter: WorkCenterDocument): string {
+    return workCenter.data.name;
   }
 
   /** Opens create panel by translating click position to a start date. */
@@ -204,8 +248,7 @@ export class TimelineComponent {
     const rowWidth = this.visibleColumns.length * this.colWidthPx;
     const px = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth - 1);
     const utcDay = Math.floor(this.pxToUtcDay(px));
-    const startIso = this.utcDayToIso(utcDay);
-    this.openCreatePanel(workCenterId, startIso);
+    this.openCreatePanel(workCenterId, this.utcDayToIso(utcDay));
   }
 
   /** Opens edit panel when a work-order bar is clicked. */
@@ -262,14 +305,14 @@ export class TimelineComponent {
     if (!id) {
       return;
     }
-    const wo = this.workOrders.find((w) => w.id === id);
-    if (!wo) {
+    const workOrder = this.workOrders.find((order) => order.docId === id);
+    if (!workOrder) {
       return;
     }
-    this.openEditPanel(wo);
+    this.openEditPanel(workOrder);
   }
 
-  /** Deletes selected work order from the actions menu. */
+  /** Deletes selected work order from actions menu. */
   onActionsMenuDelete(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -281,76 +324,21 @@ export class TimelineComponent {
     this.deleteWorkOrderById(id);
   }
 
-  /** Scrolls timeline so today's position is close to viewport center. */
-  scrollToToday(): void {
+  /** Scrolls timeline so today is close to center of viewport. */
+  scrollToToday(smooth = true): void {
     const timelinePanel = this.timelineScrollPanelRef?.nativeElement;
     if (!timelinePanel) {
       return;
     }
     const maxScrollLeft = Math.max(0, timelinePanel.scrollWidth - timelinePanel.clientWidth);
     const target = this.todayOffsetPx - timelinePanel.clientWidth / 2;
-    timelinePanel.scrollTo({ left: Math.min(maxScrollLeft, Math.max(0, target)), behavior: 'smooth' });
-  }
-
-  /** Closes actions menu when clicking anywhere outside of it. */
-  @HostListener('document:mousedown', ['$event'])
-  onDocumentMouseDown(event: MouseEvent): void {
-    if (this.isInsideNgSelect(event)) {
-      return;
-    }
-    if (!this.actionsMenu) {
-      return;
-    }
-    const target = event.target as Element | null;
-    if (target?.closest('.floating-actions-menu') || target?.closest('.work-order-kebab')) {
-      return;
-    }
-    this.closeActionsMenu();
-  }
-
-  /** Checks whether event target is inside ng-select control or its body-appended dropdown. */
-  private isInsideNgSelect(event: Event): boolean {
-    const target = event.target as HTMLElement | null;
-    if (!target) {
-      return false;
-    }
-    if (target.closest('ng-select')) {
-      return true;
-    }
-    if (target.closest('.ng-dropdown-panel')) {
-      return true;
-    }
-    if (target.closest('.ng-select')) {
-      return true;
-    }
-    return false;
-  }
-
-  /** Opens panel in edit mode and hydrates form from work-order data. */
-  private openEditPanel(workOrder: WorkOrderDocument): void {
-    if (this.DEBUG_FREEZE) {
-      console.log('[freeze-debug] openEditPanel workOrderId:', workOrder.id);
-      console.time('openEditPanel');
-    }
-    this.panelMode = 'edit';
-    this.panelOpen = true;
-    this.editingWorkOrderId = workOrder.id;
-    this.panelWorkCenterId = workOrder.workCenterId;
-    this.panelWorkCenterName = this.findWorkCenterName(workOrder.workCenterId);
-    this.saveError = null;
-    this.workOrderForm.reset({
-      name: workOrder.name,
-      status: workOrder.status,
-      startsAtIso: workOrder.startsAtIso,
-      endsAtIso: workOrder.endsAtIso
+    timelinePanel.scrollTo({
+      left: Math.min(maxScrollLeft, Math.max(0, target)),
+      behavior: smooth ? 'smooth' : 'auto'
     });
-    this.recomputeDerivedFormState();
-    if (this.DEBUG_FREEZE) {
-      console.timeEnd('openEditPanel');
-    }
   }
 
-  /** Shows row hover hint unless pointer is over interactive row content. */
+  /** Shows row hover hint unless pointer is over interactive content. */
   onTimelineRowHover(event: MouseEvent, workCenterId: string): void {
     if (this.isHoveringInteractiveElement(event) || this.actionsMenu) {
       if (this.hoverWorkCenterId === workCenterId) {
@@ -362,7 +350,7 @@ export class TimelineComponent {
     this.updateHoverHintPosition(event);
   }
 
-  /** Clears row hover hint when leaving a timeline row. */
+  /** Clears row hover hint when leaving row. */
   onTimelineRowLeave(workCenterId: string): void {
     if (this.hoverWorkCenterId === workCenterId) {
       this.hoverWorkCenterId = null;
@@ -374,8 +362,9 @@ export class TimelineComponent {
     const selectedStart = date ? this.cloneDateStruct(date) : null;
     this.startDateStructValue = selectedStart;
     const startIso = selectedStart ? this.structToIsoDateOnly(selectedStart) : '';
-    this.workOrderForm.controls.startsAtIso.setValue(startIso);
-    this.workOrderForm.controls.startsAtIso.markAsTouched();
+    this.workOrderForm.controls.startDate.setValue(startIso);
+    this.workOrderForm.controls.startDate.markAsTouched();
+
     if (!selectedStart || !this.endDateStructValue) {
       return;
     }
@@ -383,46 +372,40 @@ export class TimelineComponent {
       return;
     }
     this.endDateStructValue = this.cloneDateStruct(selectedStart);
-    this.workOrderForm.controls.endsAtIso.setValue(startIso);
-    this.workOrderForm.controls.endsAtIso.markAsTouched();
+    this.workOrderForm.controls.endDate.setValue(startIso);
+    this.workOrderForm.controls.endDate.markAsTouched();
   }
 
   /** Syncs end datepicker selection into form ISO field. */
   onEndDatePicked(date: NgbDateStruct | null): void {
     const selectedEnd = date ? this.cloneDateStruct(date) : null;
     this.endDateStructValue = selectedEnd;
+
     if (!selectedEnd) {
-      this.workOrderForm.controls.endsAtIso.setValue('');
-      this.workOrderForm.controls.endsAtIso.markAsTouched();
+      this.workOrderForm.controls.endDate.setValue('');
+      this.workOrderForm.controls.endDate.markAsTouched();
       return;
     }
-    const startsAt = this.startDateStructValue;
-    if (startsAt && this.structToDate(selectedEnd).getTime() < this.structToDate(startsAt).getTime()) {
-      this.endDateStructValue = this.cloneDateStruct(startsAt);
-      this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(startsAt));
-      this.workOrderForm.controls.endsAtIso.markAsTouched();
+
+    const selectedStart = this.startDateStructValue;
+    if (selectedStart && this.structToDate(selectedEnd).getTime() < this.structToDate(selectedStart).getTime()) {
+      this.endDateStructValue = this.cloneDateStruct(selectedStart);
+      this.workOrderForm.controls.endDate.setValue(this.structToIsoDateOnly(selectedStart));
+      this.workOrderForm.controls.endDate.markAsTouched();
       return;
     }
-    this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(selectedEnd));
-    this.workOrderForm.controls.endsAtIso.markAsTouched();
+
+    this.workOrderForm.controls.endDate.setValue(this.structToIsoDateOnly(selectedEnd));
+    this.workOrderForm.controls.endDate.markAsTouched();
   }
 
-  /** Tooltip content for a work-order bar. */
-  formatWorkOrderTooltip(workOrder: WorkOrderDocument): string {
-    return `${workOrder.name}\n${workOrder.status}\n${workOrder.startsAtIso} -> ${workOrder.endsAtIso}`;
-  }
-
-  /** User-facing status label shown in ng-select options and selected value pill. */
-  statusLabel(status: WorkOrderStatus): string {
-    if (status === 'in-progress') {
-      return 'In progress';
-    }
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-
-  /** Handles Escape key for dismissing menu first, then side panel. */
+  /** Handles Escape key for dismissing overlays. */
   @HostListener('document:keydown.escape')
   onEscapePressed(): void {
+    if (this.timescaleMenuOpen) {
+      this.timescaleMenuOpen = false;
+      return;
+    }
     if (this.actionsMenu) {
       this.closeActionsMenu();
       return;
@@ -432,7 +415,28 @@ export class TimelineComponent {
     }
   }
 
-  /** Resets and closes the create/edit side panel. */
+  /** Closes menus when clicking outside of controls. */
+  @HostListener('document:mousedown', ['$event'])
+  onDocumentMouseDown(event: MouseEvent): void {
+    const target = event.target as Element | null;
+
+    if (!target?.closest('.timescale-btn') && !target?.closest('.timescale-menu')) {
+      this.timescaleMenuOpen = false;
+    }
+
+    if (this.isInsideNgSelect(event)) {
+      return;
+    }
+    if (!this.actionsMenu) {
+      return;
+    }
+    if (target?.closest('.floating-actions-menu') || target?.closest('.work-order-kebab')) {
+      return;
+    }
+    this.closeActionsMenu();
+  }
+
+  /** Resets and closes create/edit panel. */
   closePanel(): void {
     this.panelOpen = false;
     this.panelMode = 'create';
@@ -443,15 +447,15 @@ export class TimelineComponent {
     this.workOrderForm.reset({
       name: '',
       status: 'open',
-      startsAtIso: '',
-      endsAtIso: ''
+      startDate: '',
+      endDate: ''
     });
     this.recomputeDerivedFormState();
     this.workOrderForm.markAsPristine();
     this.workOrderForm.markAsUntouched();
   }
 
-  /** Creates or updates work order based on current panel mode. */
+  /** Creates or updates work order based on panel mode. */
   saveWorkOrder(): void {
     this.workOrderForm.markAllAsTouched();
     this.saveError = null;
@@ -465,8 +469,8 @@ export class TimelineComponent {
       workCenterId: this.panelWorkCenterId,
       name: (raw.name ?? '').trim(),
       status: raw.status as WorkOrderStatus,
-      startsAtIso: raw.startsAtIso ?? '',
-      endsAtIso: raw.endsAtIso ?? ''
+      startDate: raw.startDate ?? '',
+      endDate: raw.endDate ?? ''
     };
 
     if (!payload.name) {
@@ -475,16 +479,23 @@ export class TimelineComponent {
     }
 
     if (this.panelMode === 'edit' && this.editingWorkOrderId) {
-      const index = this.workOrders.findIndex((item) => item.id === this.editingWorkOrderId);
+      const index = this.workOrders.findIndex((item) => item.docId === this.editingWorkOrderId);
       if (index < 0) {
         this.saveError = 'Work order not found.';
         return;
       }
-      this.workOrders[index] = { ...this.workOrders[index], ...payload };
+      this.workOrders[index] = {
+        ...this.workOrders[index],
+        data: {
+          ...this.workOrders[index].data,
+          ...payload
+        }
+      };
     } else {
       this.workOrders.push({
-        id: this.nextWorkOrderId(),
-        ...payload
+        docId: this.nextWorkOrderId(),
+        docType: 'workOrder',
+        data: payload
       });
     }
 
@@ -492,7 +503,7 @@ export class TimelineComponent {
     this.closePanel();
   }
 
-  /** Deletes work order currently being edited in side panel. */
+  /** Deletes current edit target from side panel. */
   deleteWorkOrder(): void {
     if (!this.editingWorkOrderId) {
       return;
@@ -500,14 +511,15 @@ export class TimelineComponent {
     this.deleteWorkOrderById(this.editingWorkOrderId);
   }
 
-  /** Removes a work order by id and refreshes grouped timeline data. */
+  /** Removes a work order by id and refreshes grouped data. */
   deleteWorkOrderById(workOrderId: string): void {
-    const index = this.workOrders.findIndex((item) => item.id === workOrderId);
+    const index = this.workOrders.findIndex((item) => item.docId === workOrderId);
     if (index < 0) {
       return;
     }
     this.workOrders.splice(index, 1);
     this.rebuildWorkOrderGroups();
+
     if (this.editingWorkOrderId === workOrderId) {
       this.closePanel();
       return;
@@ -515,16 +527,59 @@ export class TimelineComponent {
     this.closeActionsMenu();
   }
 
+  /** Opens panel in create mode with default 7-day range. */
+  private openCreatePanel(workCenterId: string, startDateIso: string): void {
+    this.panelMode = 'create';
+    this.panelOpen = true;
+    this.editingWorkOrderId = null;
+    this.panelWorkCenterId = workCenterId;
+    this.panelWorkCenterName = this.findWorkCenterName(workCenterId);
+    this.saveError = null;
+
+    this.workOrderForm.reset({
+      name: '',
+      status: 'open',
+      startDate: startDateIso,
+      endDate: this.addDaysToIso(startDateIso, 7)
+    });
+    this.recomputeDerivedFormState();
+  }
+
+  /** Opens panel in edit mode and hydrates form from existing work order. */
+  private openEditPanel(workOrder: WorkOrderDocument): void {
+    this.panelMode = 'edit';
+    this.panelOpen = true;
+    this.editingWorkOrderId = workOrder.docId;
+    this.panelWorkCenterId = workOrder.data.workCenterId;
+    this.panelWorkCenterName = this.findWorkCenterName(workOrder.data.workCenterId);
+    this.saveError = null;
+
+    this.workOrderForm.reset({
+      name: workOrder.data.name,
+      status: workOrder.data.status,
+      startDate: workOrder.data.startDate,
+      endDate: workOrder.data.endDate
+    });
+    this.recomputeDerivedFormState();
+  }
+
   /** Rebuilds lookup map of work orders grouped by work center id. */
   private rebuildWorkOrderGroups(): void {
     const grouped: Record<string, WorkOrderDocument[]> = {};
+
     for (const workOrder of this.workOrders) {
-      const existing = grouped[workOrder.workCenterId] ?? [];
+      const workCenterId = workOrder.data.workCenterId;
+      const existing = grouped[workCenterId] ?? [];
       existing.push(workOrder);
-      grouped[workOrder.workCenterId] = existing;
+      grouped[workCenterId] = existing;
     }
+
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => this.isoToUtcDay(a.data.startDate) - this.isoToUtcDay(b.data.startDate));
+    }
+
     this.workOrdersByWorkCenterId = grouped;
-    this.scheduleValidationRecompute();
+    this.recomputeDerivedFormState();
   }
 
   /** Recomputes timeline columns for current timescale. */
@@ -544,11 +599,12 @@ export class TimelineComponent {
 
   /** Builds +/-14 day columns around today. */
   private buildDayColumns(todayUtcDay: number): TimelineColumn[] {
-    const cols: TimelineColumn[] = [];
+    const columns: TimelineColumn[] = [];
+
     for (let offset = -14; offset <= 14; offset += 1) {
       const startUtcDay = todayUtcDay + offset;
       const endUtcDay = startUtcDay + 1;
-      cols.push({
+      columns.push({
         key: `d-${startUtcDay}`,
         startUtcDay,
         endUtcDay,
@@ -557,52 +613,53 @@ export class TimelineComponent {
         containsToday: startUtcDay <= todayUtcDay && todayUtcDay < endUtcDay
       });
     }
-    return cols;
+
+    return columns;
   }
 
   /** Builds +/-8 week columns around current week. */
   private buildWeekColumns(todayUtcDay: number): TimelineColumn[] {
-    const cols: TimelineColumn[] = [];
+    const columns: TimelineColumn[] = [];
     const currentWeekStartUtcDay = this.startOfWeekUtcDay(todayUtcDay);
+
     for (let offset = -8; offset <= 8; offset += 1) {
       const startUtcDay = currentWeekStartUtcDay + offset * 7;
       const endUtcDay = startUtcDay + 7;
-      const start = this.utcDayToDate(startUtcDay);
-      const endInclusive = this.utcDayToDate(endUtcDay - 1);
-      cols.push({
+      const endInclusive = endUtcDay - 1;
+      columns.push({
         key: `w-${startUtcDay}`,
         startUtcDay,
         endUtcDay,
-        topLabel: this.weekTopFormatter.format(start),
-        bottomLabel: this.weekTopFormatter.format(endInclusive),
+        topLabel: this.weekFormatter.format(this.utcDayToDate(startUtcDay)),
+        bottomLabel: this.weekFormatter.format(this.utcDayToDate(endInclusive)),
         containsToday: startUtcDay <= todayUtcDay && todayUtcDay < endUtcDay
       });
     }
-    return cols;
+
+    return columns;
   }
 
   /** Builds +/-6 month columns around current month. */
   private buildMonthColumns(todayUtcDay: number): TimelineColumn[] {
     const today = new Date();
-    const baseYear = today.getFullYear();
-    const baseMonth = today.getMonth();
-    const cols: TimelineColumn[] = [];
+    const baseYear = today.getUTCFullYear();
+    const baseMonth = today.getUTCMonth();
+    const columns: TimelineColumn[] = [];
 
     for (let offset = -6; offset <= 6; offset += 1) {
-      const monthStartUtc = Date.UTC(baseYear, baseMonth + offset, 1) / this.msPerDay;
-      const nextMonthStartUtc = Date.UTC(baseYear, baseMonth + offset + 1, 1) / this.msPerDay;
-      const monthStartDate = this.utcDayToDate(monthStartUtc);
-      cols.push({
-        key: `m-${monthStartUtc}`,
-        startUtcDay: monthStartUtc,
-        endUtcDay: nextMonthStartUtc,
-        topLabel: this.monthTopFormatter.format(monthStartDate),
-        bottomLabel: this.monthBottomFormatter.format(monthStartDate),
-        containsToday: monthStartUtc <= todayUtcDay && todayUtcDay < nextMonthStartUtc
+      const startUtcDay = Date.UTC(baseYear, baseMonth + offset, 1) / this.msPerDay;
+      const endUtcDay = Date.UTC(baseYear, baseMonth + offset + 1, 1) / this.msPerDay;
+      columns.push({
+        key: `m-${startUtcDay}`,
+        startUtcDay,
+        endUtcDay,
+        topLabel: this.monthFormatter.format(this.utcDayToDate(startUtcDay)),
+        bottomLabel: '',
+        containsToday: startUtcDay <= todayUtcDay && todayUtcDay < endUtcDay
       });
     }
 
-    return cols;
+    return columns;
   }
 
   /** Converts UTC day value to X position in current column scale. */
@@ -613,6 +670,7 @@ export class TimelineComponent {
 
     const first = this.visibleColumns[0];
     const last = this.visibleColumns[this.visibleColumns.length - 1];
+
     if (utcDay <= first.startUtcDay) {
       return 0;
     }
@@ -621,21 +679,15 @@ export class TimelineComponent {
     }
 
     const colIndex = this.visibleColumns.findIndex(
-      (col) => utcDay >= col.startUtcDay && utcDay < col.endUtcDay
+      (column) => utcDay >= column.startUtcDay && utcDay < column.endUtcDay
     );
     if (colIndex < 0) {
       return 0;
     }
 
-    const col = this.visibleColumns[colIndex];
-    const colSpanDays = col.endUtcDay - col.startUtcDay;
-    const fractionWithinColumn = (utcDay - col.startUtcDay) / colSpanDays;
+    const column = this.visibleColumns[colIndex];
+    const fractionWithinColumn = (utcDay - column.startUtcDay) / (column.endUtcDay - column.startUtcDay);
     return (colIndex + fractionWithinColumn) * this.colWidthPx;
-  }
-
-  /** Converts UTC day number to UTC date object. */
-  private utcDayToDate(utcDay: number): Date {
-    return new Date(utcDay * this.msPerDay);
   }
 
   /** Converts X pixel coordinate back to fractional UTC day. */
@@ -643,14 +695,15 @@ export class TimelineComponent {
     if (this.visibleColumns.length === 0) {
       return 0;
     }
+
     const colIndex = Math.min(
       this.visibleColumns.length - 1,
       Math.max(0, Math.floor(px / this.colWidthPx))
     );
-    const col = this.visibleColumns[colIndex];
+    const column = this.visibleColumns[colIndex];
     const colStartPx = colIndex * this.colWidthPx;
-    const fractionWithinCol = (px - colStartPx) / this.colWidthPx;
-    return col.startUtcDay + fractionWithinCol * (col.endUtcDay - col.startUtcDay);
+    const fractionWithinColumn = (px - colStartPx) / this.colWidthPx;
+    return column.startUtcDay + fractionWithinColumn * (column.endUtcDay - column.startUtcDay);
   }
 
   /** Returns Monday-based start-of-week UTC day for a given UTC day. */
@@ -665,6 +718,11 @@ export class TimelineComponent {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const elapsedMs = now.getTime() - startOfDay.getTime();
     return elapsedMs / this.msPerDay;
+  }
+
+  /** Converts UTC day number to UTC date object. */
+  private utcDayToDate(utcDay: number): Date {
+    return new Date(utcDay * this.msPerDay);
   }
 
   /** Parses ISO date string (YYYY-MM-DD) to UTC day number. */
@@ -682,27 +740,9 @@ export class TimelineComponent {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  /** Converts local calendar date to corresponding UTC day index. */
+  /** Converts local calendar date to UTC day index. */
   private toUtcDay(d: Date): number {
     return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / this.msPerDay;
-  }
-
-  /** Opens side panel in create mode with default 7-day date window. */
-  private openCreatePanel(workCenterId: string, startIso: string): void {
-    const endIso = this.addDaysToIso(startIso, 7);
-    this.panelMode = 'create';
-    this.panelOpen = true;
-    this.editingWorkOrderId = null;
-    this.panelWorkCenterId = workCenterId;
-    this.panelWorkCenterName = this.findWorkCenterName(workCenterId);
-    this.saveError = null;
-    this.workOrderForm.reset({
-      name: '',
-      status: 'open',
-      startsAtIso: startIso,
-      endsAtIso: endIso
-    });
-    this.recomputeDerivedFormState();
   }
 
   /** Repositions hover hint pill relative to cursor location in row. */
@@ -711,22 +751,24 @@ export class TimelineComponent {
       this.hoverHintLeftPx = 0;
       return;
     }
+
     const rowElement = event.currentTarget as HTMLElement | null;
     if (!rowElement) {
       return;
     }
+
     const rect = rowElement.getBoundingClientRect();
     const rowWidth = this.visibleColumns.length * this.colWidthPx;
-    const x = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth);
-    this.hoverHintLeftPx = x;
+    this.hoverHintLeftPx = Math.min(Math.max(event.clientX - rect.left, 0), rowWidth);
   }
 
-  /** Detects whether pointer is currently over row interactive controls. */
+  /** Checks whether pointer is inside row interactive controls. */
   private isHoveringInteractiveElement(event: MouseEvent): boolean {
     const target = event.target as Element | null;
     if (!target) {
       return false;
     }
+
     return Boolean(
       target.closest('.work-order-bar') ||
         target.closest('.work-order-actions') ||
@@ -735,91 +777,80 @@ export class TimelineComponent {
     );
   }
 
-  /** Closes floating work-order actions menu. */
+  /** Closes floating actions menu. */
   private closeActionsMenu(): void {
     this.actionsMenu = null;
   }
 
-  /** Finds work order by id, returning null when absent. */
-  private findWorkOrderById(id: string): WorkOrderDocument | null {
-    return this.workOrders.find((w) => w.id === id) ?? null;
-  }
-
-  /** Queues a single microtask to recompute form-derived validation state. */
-  private scheduleValidationRecompute(): void {
-    if (this.validationRecomputeQueued) {
-      return;
+  /** Checks if click target is inside ng-select input or dropdown panel. */
+  private isInsideNgSelect(event: Event): boolean {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return false;
     }
-    this.validationRecomputeQueued = true;
-    queueMicrotask(() => {
-      this.validationRecomputeQueued = false;
-      this.recomputeDerivedFormState();
-    });
+    return Boolean(target.closest('ng-select') || target.closest('.ng-select') || target.closest('.ng-dropdown-panel'));
   }
 
-  /** Recomputes datepicker models and custom validation error text. */
+  /** Recomputes datepicker models and validation errors from form values. */
   private recomputeDerivedFormState(): void {
-    const startsAtIso = this.workOrderForm.controls.startsAtIso.value ?? '';
-    const endsAtIso = this.workOrderForm.controls.endsAtIso.value ?? '';
-    this.startDateStructValue = this.isoToDateStruct(startsAtIso);
-    this.endDateStructValue = this.isoToDateStruct(endsAtIso);
-    if (this.DEBUG_FREEZE) {
-      this.debugStartDateStructCount += 1;
-      this.debugEndDateStructCount += 1;
-      if (this.debugStartDateStructCount % 200 === 0) {
-        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
-        console.log('[freeze-debug] startDateStruct recompute count:', this.debugStartDateStructCount, 'elapsedMs:', elapsed);
-      }
-      if (this.debugEndDateStructCount % 200 === 0) {
-        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
-        console.log('[freeze-debug] endDateStruct recompute count:', this.debugEndDateStructCount, 'elapsedMs:', elapsed);
-      }
-    }
+    const startDate = this.workOrderForm.controls.startDate.value ?? '';
+    const endDate = this.workOrderForm.controls.endDate.value ?? '';
 
-    this.dateRangeErrorText = this.computeDateRangeErrorText(startsAtIso, endsAtIso);
-    this.overlapErrorText = this.computeOverlapErrorText(startsAtIso, endsAtIso);
+    this.startDateStructValue = this.isoToDateStruct(startDate);
+    this.endDateStructValue = this.isoToDateStruct(endDate);
+    this.dateRangeErrorText = this.computeDateRangeErrorText(startDate, endDate);
+    this.overlapErrorText = this.computeOverlapErrorText(startDate, endDate);
   }
 
   /** Validates start/end date ordering for current form values. */
-  private computeDateRangeErrorText(startsAtIso: string, endsAtIso: string): string | null {
-    if (this.DEBUG_FREEZE) {
-      this.debugDateRangeComputeCount += 1;
-      if (this.debugDateRangeComputeCount % 200 === 0) {
-        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
-        console.log('[freeze-debug] formDateRangeError count:', this.debugDateRangeComputeCount, 'elapsedMs:', elapsed);
-      }
-    }
-
-    if (!startsAtIso || !endsAtIso) {
+  private computeDateRangeErrorText(startDateIso: string, endDateIso: string): string | null {
+    if (!startDateIso || !endDateIso) {
       return null;
     }
-    if (this.isoToUtcDay(endsAtIso) < this.isoToUtcDay(startsAtIso)) {
+
+    if (this.isoToUtcDay(endDateIso) < this.isoToUtcDay(startDateIso)) {
       return 'End date must be on or after start date.';
     }
     return null;
   }
 
-  /** Validates work-order overlap conflicts within the same work center. */
-  private computeOverlapErrorText(startsAtIso: string, endsAtIso: string): string | null {
-    if (this.DEBUG_FREEZE) {
-      this.debugOverlapComputeCount += 1;
-      if (this.debugOverlapComputeCount % 50 === 0) {
-        const elapsed = Math.round(globalThis.performance.now() - this.debugStartedAtMs);
-        console.log('[freeze-debug] overlapError count:', this.debugOverlapComputeCount, 'elapsedMs:', elapsed);
-      }
-    }
-
-    if (!this.panelWorkCenterId || !startsAtIso || !endsAtIso || this.dateRangeErrorText) {
+  /** Validates overlap conflicts for selected work center. */
+  private computeOverlapErrorText(startDateIso: string, endDateIso: string): string | null {
+    if (!this.panelWorkCenterId || !startDateIso || !endDateIso || this.dateRangeErrorText) {
       return null;
     }
 
-    const startUtcDay = this.isoToUtcDay(startsAtIso);
-    const endUtcDay = this.isoToUtcDay(endsAtIso);
+    const startUtcDay = this.isoToUtcDay(startDateIso);
+    const endUtcDay = this.isoToUtcDay(endDateIso);
     const overlap = this.findOverlap(this.panelWorkCenterId, startUtcDay, endUtcDay, this.editingWorkOrderId);
     if (!overlap) {
       return null;
     }
-    return `Overlaps with "${overlap.name}" (${overlap.startsAtIso} to ${overlap.endsAtIso}).`;
+
+    return `Overlaps with "${overlap.data.name}" (${overlap.data.startDate} to ${overlap.data.endDate}).`;
+  }
+
+  /** Finds first overlapping work order for same center, excluding optional id. */
+  private findOverlap(
+    workCenterId: string,
+    startUtcDay: number,
+    endUtcDay: number,
+    skipWorkOrderId: string | null
+  ): WorkOrderDocument | null {
+    const centerWorkOrders = this.workOrdersByWorkCenterId[workCenterId] ?? [];
+    for (const existing of centerWorkOrders) {
+      if (skipWorkOrderId && existing.docId === skipWorkOrderId) {
+        continue;
+      }
+
+      const existingStart = this.isoToUtcDay(existing.data.startDate);
+      const existingEnd = this.isoToUtcDay(existing.data.endDate);
+      const overlaps = !(endUtcDay < existingStart || startUtcDay > existingEnd);
+      if (overlaps) {
+        return existing;
+      }
+    }
+    return null;
   }
 
   /** Converts ISO date string to ng-bootstrap date struct. */
@@ -856,40 +887,20 @@ export class TimelineComponent {
 
   /** Resolves work center name from id, falling back to id when missing. */
   private findWorkCenterName(workCenterId: string): string {
-    return this.workCenters.find((center) => center.id === workCenterId)?.name ?? workCenterId;
-  }
-
-  /** Finds first overlapping work order in a center, excluding optional id. */
-  private findOverlap(
-    workCenterId: string,
-    startUtcDay: number,
-    endUtcDay: number,
-    skipWorkOrderId: string | null
-  ): WorkOrderDocument | null {
-    const centerWorkOrders = this.workOrdersByWorkCenterId[workCenterId] ?? [];
-    for (const existing of centerWorkOrders) {
-      if (skipWorkOrderId && existing.id === skipWorkOrderId) {
-        continue;
-      }
-      const existingStart = this.isoToUtcDay(existing.startsAtIso);
-      const existingEnd = this.isoToUtcDay(existing.endsAtIso);
-      const overlaps = !(endUtcDay < existingStart || startUtcDay > existingEnd);
-      if (overlaps) {
-        return existing;
-      }
-    }
-    return null;
+    return this.workCenters.find((center) => center.docId === workCenterId)?.data.name ?? workCenterId;
   }
 
   /** Generates next numeric work-order id in `wo-0000` format. */
   private nextWorkOrderId(): string {
     let maxId = 0;
+
     for (const workOrder of this.workOrders) {
-      const parsed = Number(workOrder.id.replace(/^wo-/, ''));
+      const parsed = Number(workOrder.docId.replace(/^wo-/, ''));
       if (Number.isFinite(parsed) && parsed > maxId) {
         maxId = parsed;
       }
     }
+
     return `wo-${String(maxId + 1).padStart(4, '0')}`;
   }
 }

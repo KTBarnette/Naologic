@@ -1,126 +1,127 @@
-<!-- Timeline Shell: fixed work-center column + horizontally scrollable timeline -->
-<section class="timeline-layout">
-  <!-- Work Center Column Header + Rows -->
-  <aside class="work-centers-panel">
-    <div class="panel-header">Work Centers</div>
+<section class="work-orders-page" [class.is-panel-open]="panelOpen">
+  <header class="brand-row">
+    <div class="brand-mark">NAOLOGIC</div>
+  </header>
 
-    @for (center of workCenters; track center.id) {
-      <div class="work-center-row">{{ center.name }}</div>
-    }
-  </aside>
+  <main class="page-content">
+    <h1 class="page-title">Work Orders</h1>
 
-  <!-- Timeline Panel: toolbar, date grid, bars, and contextual actions -->
-  <div #timelineScrollPanel class="timeline-panel">
-    <!-- Toolbar: scale switcher + jump-to-today action -->
     <div class="timeline-toolbar">
-      <label for="timescale-select">Scale</label>
-      <select
-        id="timescale-select"
-        [value]="timescale"
-        (change)="setTimescale(($any($event.target)).value)"
-      >
-        @for (option of timescaleOptions; track option) {
-          <option [value]="option">{{ option | titlecase }}</option>
-        }
-      </select>
-      <button type="button" class="today-btn" (click)="scrollToToday()">Today</button>
-    </div>
+      <button type="button" class="timescale-btn" (click)="onTimescaleMenuToggle($event)">
+        <span class="timescale-label">Timescale</span>
+        <span class="timescale-value">{{ timescaleLabel(timescale) }}</span>
+        <span class="timescale-chevron">⌄</span>
+      </button>
 
-
-    <!-- Grid Wrapper: header row + one data row per work center -->
-    <div class="timeline-grid">
-      <!-- Visual marker for current day/time position -->
-      <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
-
-      <!-- Timeline Header Columns (day/week/month labels) -->
-      <div class="timeline-header-row" [style.--col-w.px]="colWidthPx">
-        @for (col of visibleColumns; track trackByCol($index, col)) {
-          <div
-            class="timeline-header-cell"
-            [class.is-today]="col.containsToday"
-          >
-            <div class="header-dow">{{ col.topLabel }}</div>
-            <div class="header-date">{{ col.bottomLabel }}</div>
-          </div>
-        }
-      </div>
-
-      <!-- Data Rows: click-to-create cells + rendered work-order bars -->
-      @for (center of workCenters; track center.id) {
-        <div
-          class="timeline-data-row"
-          [style.--col-w.px]="colWidthPx"
-          (click)="onTimelineRowClick($event, center.id)"
-          (mouseenter)="onTimelineRowHover($event, center.id)"
-          (mousemove)="onTimelineRowHover($event, center.id)"
-          (mouseleave)="onTimelineRowLeave(center.id)"
-        >
-          @for (col of visibleColumns; track trackByCol($index, col)) {
-            <div
-              class="timeline-data-cell"
-              [class.is-today]="col.containsToday"
-            ></div>
+      @if (timescaleMenuOpen) {
+        <div class="timescale-menu" (click)="$event.stopPropagation()">
+          @for (option of timescaleOptions; track option) {
+            <button
+              type="button"
+              class="timescale-menu-item"
+              [class.is-active]="timescale === option"
+              (click)="setTimescale(option)"
+            >
+              {{ timescaleLabel(option) }}
+            </button>
           }
-
-          @if (hoverWorkCenterId === center.id && !actionsMenu) {
-            <!-- Inline helper shown on row hover to signal click-to-create -->
-            <span class="row-hover-pill" [style.left.px]="hoverHintLeftPx">Click to add dates</span>
-          }
-
-          <!-- Layer that contains absolutely positioned work-order bars -->
-          <div class="work-order-layer">
-            @for (workOrder of visibleWorkOrdersForCenter(center.id); track workOrder.id) {
-              <div
-                class="work-order-bar"
-                role="button"
-                tabindex="0"
-                [attr.title]="formatWorkOrderTooltip(workOrder)"
-                [style.left.px]="barLeftPx(workOrder)"
-                [style.width.px]="barWidthPx(workOrder)"
-                (click)="onWorkOrderClick($event, workOrder)"
-                (keydown)="onWorkOrderKeydown($event, workOrder)"
-              >
-                <span class="work-order-name">{{ workOrder.name }}</span>
-                <span class="status-badge" [class]="'status-badge status-' + workOrder.status">
-                  {{ workOrder.status }}
-                </span>
-                <!-- Per-bar overflow menu trigger -->
-                <span class="work-order-actions" (click)="$event.stopPropagation()">
-                  <button
-                    type="button"
-                    class="work-order-kebab"
-                    [class.is-open]="actionsMenu?.workOrderId === workOrder.id"
-                    aria-label="Work order actions"
-                    (click)="onWorkOrderActionsToggle($event, workOrder.id)"
-                  >
-                    ⋮
-                  </button>
-                </span>
-              </div>
-            }
-          </div>
         </div>
       }
     </div>
 
-    @if (actionsMenu) {
-      <!-- Floating context menu anchored to active work-order kebab -->
-      <div
-        class="floating-actions-menu"
-        [style.left.px]="actionsMenu.leftPx"
-        [style.top.px]="actionsMenu.topPx"
-        (click)="$event.stopPropagation()"
-      >
-        <button type="button" class="work-order-menu-item" (mousedown)="onActionsMenuEdit($event)">Edit</button>
-        <button type="button" class="work-order-menu-item danger" (mousedown)="onActionsMenuDelete($event)">
-          Delete
-        </button>
+    <section class="timeline-layout">
+      <aside class="work-centers-panel">
+        <div class="panel-header">Work Center</div>
+        @for (center of workCenters; track center.docId) {
+          <div class="work-center-row">{{ workCenterName(center) }}</div>
+        }
+      </aside>
+
+      <div #timelineScrollPanel class="timeline-panel">
+        <div class="timeline-grid">
+          <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
+          <div class="today-pill" [style.left.px]="todayOffsetPx">{{ currentIndicatorLabel }}</div>
+
+          <div class="timeline-header-row" [style.--col-w.px]="colWidthPx">
+            @for (col of visibleColumns; track trackByCol($index, col)) {
+              <div class="timeline-header-cell" [class.is-current]="col.containsToday">
+                <div class="header-top">{{ col.topLabel }}</div>
+                @if (col.bottomLabel) {
+                  <div class="header-bottom">{{ col.bottomLabel }}</div>
+                }
+              </div>
+            }
+          </div>
+
+          @for (center of workCenters; track center.docId) {
+            <div
+              class="timeline-data-row"
+              [style.--col-w.px]="colWidthPx"
+              (click)="onTimelineRowClick($event, center.docId)"
+              (mouseenter)="onTimelineRowHover($event, center.docId)"
+              (mousemove)="onTimelineRowHover($event, center.docId)"
+              (mouseleave)="onTimelineRowLeave(center.docId)"
+            >
+              @for (col of visibleColumns; track trackByCol($index, col)) {
+                <div class="timeline-data-cell" [class.is-current]="col.containsToday"></div>
+              }
+
+              @if (hoverWorkCenterId === center.docId && !actionsMenu) {
+                <div class="add-slot" [style.left.px]="hoverHintLeftPx"></div>
+                <span class="row-hover-pill" [style.left.px]="hoverHintLeftPx">Click to add dates</span>
+              }
+
+              <div class="work-order-layer">
+                @for (workOrder of visibleWorkOrdersForCenter(center.docId); track workOrder.docId) {
+                  <div
+                    class="work-order-bar"
+                    role="button"
+                    tabindex="0"
+                    [style.left.px]="barLeftPx(workOrder)"
+                    [style.width.px]="barWidthPx(workOrder)"
+                    (click)="onWorkOrderClick($event, workOrder)"
+                    (keydown)="onWorkOrderKeydown($event, workOrder)"
+                  >
+                    <span class="work-order-name">{{ workOrder.data.name }}</span>
+                    <span class="status-badge" [class]="'status-badge status-' + workOrder.data.status">
+                      {{ statusLabel(workOrder.data.status) }}
+                    </span>
+                    <span class="work-order-actions" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="work-order-kebab"
+                        [class.is-open]="actionsMenu?.workOrderId === workOrder.docId"
+                        aria-label="Work order actions"
+                        (click)="onWorkOrderActionsToggle($event, workOrder.docId)"
+                      >
+                        •••
+                      </button>
+                    </span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        @if (actionsMenu) {
+          <div
+            class="floating-actions-menu"
+            [style.left.px]="actionsMenu.leftPx"
+            [style.top.px]="actionsMenu.topPx"
+            (click)="$event.stopPropagation()"
+          >
+            <button type="button" class="work-order-menu-item" (mousedown)="onActionsMenuEdit($event)">Edit</button>
+            <button type="button" class="work-order-menu-item danger" (mousedown)="onActionsMenuDelete($event)">
+              Delete
+            </button>
+          </div>
+        }
       </div>
-    }
-  </div>
+    </section>
+  </main>
 </section>
 
-<!-- Page overlay for side panel -->
 <button
   type="button"
   class="panel-backdrop"
@@ -129,7 +130,7 @@
   (click)="closePanel()"
   aria-label="Close panel"
 ></button>
-<!-- Create/Edit Side Panel -->
+
 <aside
   class="work-order-panel"
   [class.is-open]="panelOpen"
@@ -138,28 +139,25 @@
   [attr.aria-hidden]="!panelOpen"
   aria-label="Work order editor"
 >
-  <!-- Side Panel Header -->
   <header class="panel-title-row">
     <div class="panel-title-group">
       <h2 class="panel-title">{{ panelTitle }}</h2>
-      <p class="panel-subtitle">Specify the dates when the work order will be active.</p>
+      <p class="panel-subtitle">Specify the dates, name and status for this order</p>
     </div>
     <div class="panel-header-actions">
       <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
-      <button type="submit" class="btn-primary" [disabled]="!canSave" form="work-order-form">Save</button>
+      <button type="submit" class="btn-primary" [disabled]="!canSave" form="work-order-form">
+        {{ panelPrimaryActionLabel }}
+      </button>
     </div>
   </header>
 
-  <!-- Work Order Create/Edit Form -->
   <form id="work-order-form" class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
-    <div class="field">
-      <span>Work Center</span>
-      <p class="readonly-value">{{ panelWorkCenterName }}</p>
-    </div>
     <label class="field">
       <span>Work Order Name</span>
-      <input type="text" formControlName="name" maxlength="80" />
+      <input type="text" formControlName="name" maxlength="80" placeholder="Acme Inc." />
     </label>
+
     <label class="field">
       <span>Status</span>
       <ng-select
@@ -173,31 +171,16 @@
         [placeholder]="'Select status'"
       >
         <ng-template ng-option-tmp let-item="item">
-          <span class="status-pill" [class]="'status-pill status-' + item">{{ statusLabel(item) }}</span>
+          {{ statusLabel(item) }}
         </ng-template>
         <ng-template ng-label-tmp let-item="item">
           <span class="status-pill" [class]="'status-pill status-' + item">{{ statusLabel(item) }}</span>
         </ng-template>
       </ng-select>
     </label>
+
     <div class="field date-field">
-      <span>Start Date</span>
-      <input
-        type="text"
-        class="date-input"
-        [value]="startDateStructValue ? (('0' + startDateStructValue.month).slice(-2) + '.' + ('0' + startDateStructValue.day).slice(-2) + '.' + startDateStructValue.year) : ''"
-        placeholder="MM.DD.YYYY"
-        readonly
-        ngbDatepicker
-        #startDatePicker="ngbDatepicker"
-        [ngModel]="startDateStructValue"
-        (ngModelChange)="onStartDatePicked($event)"
-        [ngModelOptions]="{ standalone: true }"
-        (click)="startDatePicker.toggle()"
-      />
-    </div>
-    <div class="field date-field">
-      <span>End Date</span>
+      <span>End date</span>
       <input
         type="text"
         class="date-input"
@@ -214,7 +197,23 @@
       />
     </div>
 
-    <!-- Validation and save error messages -->
+    <div class="field date-field">
+      <span>Start date</span>
+      <input
+        type="text"
+        class="date-input"
+        [value]="startDateStructValue ? (('0' + startDateStructValue.month).slice(-2) + '.' + ('0' + startDateStructValue.day).slice(-2) + '.' + startDateStructValue.year) : ''"
+        placeholder="MM.DD.YYYY"
+        readonly
+        ngbDatepicker
+        #startDatePicker="ngbDatepicker"
+        [ngModel]="startDateStructValue"
+        (ngModelChange)="onStartDatePicked($event)"
+        [ngModelOptions]="{ standalone: true }"
+        (click)="startDatePicker.toggle()"
+      />
+    </div>
+
     @if (workOrderForm.controls.name.touched && workOrderForm.controls.name.invalid) {
       <p class="form-error">Name is required.</p>
     }
@@ -227,12 +226,5 @@
     @if (saveError) {
       <p class="form-error">{{ saveError }}</p>
     }
-
-    <!-- Panel action buttons -->
-    <div class="panel-actions">
-      @if (panelMode === 'edit') {
-        <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>
-      }
-    </div>
   </form>
 </aside>

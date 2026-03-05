@@ -1,1 +1,13 @@
-/* You can add global styles to this file, and also import other style files */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: 'Circular-Std', 'Circular Std', 'Avenir Next', 'Segoe UI', sans-serif;
+  background: #f7f8fc;
+}

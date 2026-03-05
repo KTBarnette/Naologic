@@ -1,109 +1,111 @@
 import { WorkCenterDocument, WorkOrderDocument } from '../types/docs';
 
 export const workCenters: WorkCenterDocument[] = [
-  { id: 'wc-01', name: 'CNC Machining Cell A' },
-  { id: 'wc-02', name: 'Laser Cutting Bay' },
-  { id: 'wc-03', name: 'Heat Treat Furnace 2' },
-  { id: 'wc-04', name: 'Assembly Line East' },
-  { id: 'wc-05', name: 'Paint Booth North' },
-  { id: 'wc-06', name: 'Final Inspection Bench' }
+  { docId: 'wc-01', docType: 'workCenter', data: { name: 'Extrusion Line A' } },
+  { docId: 'wc-02', docType: 'workCenter', data: { name: 'CNC Machine 1' } },
+  { docId: 'wc-03', docType: 'workCenter', data: { name: 'Assembly Station' } },
+  { docId: 'wc-04', docType: 'workCenter', data: { name: 'Quality Control' } },
+  { docId: 'wc-05', docType: 'workCenter', data: { name: 'Packaging Line' } }
 ];
 
 export const workOrders: WorkOrderDocument[] = [
   {
-    id: 'wo-1001',
-    workCenterId: 'wc-01',
-    name: 'Pump Housing Run',
-    status: 'open',
-    startsAtIso: '2026-02-17',
-    endsAtIso: '2026-02-19'
+    docId: 'wo-1001',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-01',
+      name: 'Aluminum Die Run',
+      status: 'complete',
+      startDate: '2026-02-20',
+      endDate: '2026-02-27'
+    }
   },
   {
-    id: 'wo-1002',
-    workCenterId: 'wc-01',
-    name: 'Valve Plate Batch',
-    status: 'in-progress',
-    startsAtIso: '2026-02-22',
-    endsAtIso: '2026-02-25'
+    docId: 'wo-1002',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-01',
+      name: 'Tube Profile Batch',
+      status: 'open',
+      startDate: '2026-03-04',
+      endDate: '2026-03-11'
+    }
   },
   {
-    id: 'wo-1003',
-    workCenterId: 'wc-02',
-    name: 'Bracket Profiles',
-    status: 'complete',
-    startsAtIso: '2026-02-18',
-    endsAtIso: '2026-02-21'
+    docId: 'wo-1003',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-02',
+      name: 'Rotor Housing Finish',
+      status: 'in-progress',
+      startDate: '2026-03-01',
+      endDate: '2026-03-08'
+    }
   },
   {
-    id: 'wo-1004',
-    workCenterId: 'wc-02',
-    name: 'Guard Panel Cut Set',
-    status: 'blocked',
-    startsAtIso: '2026-02-27',
-    endsAtIso: '2026-03-03'
+    docId: 'wo-1004',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-02',
+      name: 'Spindle Plate Rework',
+      status: 'blocked',
+      startDate: '2026-03-14',
+      endDate: '2026-03-19'
+    }
   },
   {
-    id: 'wo-1005',
-    workCenterId: 'wc-03',
-    name: 'Shaft Hardening Lot',
-    status: 'in-progress',
-    startsAtIso: '2026-02-20',
-    endsAtIso: '2026-02-24'
+    docId: 'wo-1005',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-03',
+      name: 'Control Box Assembly',
+      status: 'in-progress',
+      startDate: '2026-02-26',
+      endDate: '2026-03-06'
+    }
   },
   {
-    id: 'wo-1006',
-    workCenterId: 'wc-03',
-    name: 'Bearing Race Temper',
-    status: 'open',
-    startsAtIso: '2026-03-05',
-    endsAtIso: '2026-03-08'
+    docId: 'wo-1006',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-03',
+      name: 'Harness Install Group B',
+      status: 'open',
+      startDate: '2026-03-09',
+      endDate: '2026-03-16'
+    }
   },
   {
-    id: 'wo-1007',
-    workCenterId: 'wc-04',
-    name: 'Control Box Assembly',
-    status: 'complete',
-    startsAtIso: '2026-02-23',
-    endsAtIso: '2026-02-28'
+    docId: 'wo-1007',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-04',
+      name: 'Pressure Verification',
+      status: 'blocked',
+      startDate: '2026-03-03',
+      endDate: '2026-03-07'
+    }
   },
   {
-    id: 'wo-1008',
-    workCenterId: 'wc-05',
-    name: 'Frame Paint Prep',
-    status: 'open',
-    startsAtIso: '2026-03-01',
-    endsAtIso: '2026-03-04'
+    docId: 'wo-1008',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-05',
+      name: 'Final Pack Run 22A',
+      status: 'complete',
+      startDate: '2026-02-24',
+      endDate: '2026-03-02'
+    }
   },
   {
-    id: 'wo-1009',
-    workCenterId: 'wc-05',
-    name: 'Final Topcoat Cycle',
-    status: 'blocked',
-    startsAtIso: '2026-03-10',
-    endsAtIso: '2026-03-13'
-  },
-  {
-    id: 'wo-1010',
-    workCenterId: 'wc-04',
-    name: 'Wire Harness Kitting',
-    status: 'in-progress',
-    startsAtIso: '2026-03-03',
-    endsAtIso: '2026-03-06'
-  },
-  {
-    id: 'wo-1011',
-    workCenterId: 'wc-06',
-    name: 'Pressure Test Verification',
-    status: 'blocked',
-    startsAtIso: '2026-03-04',
-    endsAtIso: '2026-03-05'
-  },
-  {
-    id: 'wo-1012',
-    workCenterId: 'wc-06',
-    name: 'Final QA Signoff Batch',
-    status: 'complete',
-    startsAtIso: '2026-03-07',
-    endsAtIso: '2026-03-10'
+    docId: 'wo-1009',
+    docType: 'workOrder',
+    data: {
+      workCenterId: 'wc-05',
+      name: 'Labeling Wave 3',
+      status: 'open',
+      startDate: '2026-03-10',
+      endDate: '2026-03-15'
+    }
   }
 ];

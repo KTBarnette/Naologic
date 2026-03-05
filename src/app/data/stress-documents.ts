@@ -34,8 +34,11 @@ function randintInclusive(rng: () => number, min: number, max: number): number {
 export function generateWorkCenters(count: number): WorkCenterDocument[] {
   const normalizedCount = Math.max(0, Math.floor(count));
   return Array.from({ length: normalizedCount }, (_, i) => ({
-    id: `wc-${String(i + 1).padStart(3, '0')}`,
-    name: `Work Center ${String(i + 1).padStart(3, '0')}`
+    docId: `wc-${String(i + 1).padStart(3, '0')}`,
+    docType: 'workCenter',
+    data: {
+      name: `Work Center ${String(i + 1).padStart(3, '0')}`
+    }
   }));
 }
 
@@ -46,7 +49,7 @@ export function generateWorkOrders(
   endIso: string
 ): WorkOrderDocument[] {
   const normalizedCount = Math.max(0, Math.floor(count));
-  const usableCenters = centers.filter((center) => Boolean(center.id));
+  const usableCenters = centers.filter((center) => Boolean(center.docId));
   if (normalizedCount === 0 || usableCenters.length === 0) {
     return [];
   }
@@ -63,7 +66,7 @@ export function generateWorkOrders(
 
   for (let i = 0; i < normalizedCount; i += 1) {
     const center = usableCenters[i % usableCenters.length];
-    const centerId = center.id;
+    const centerId = center.docId;
 
     const durationDays = randintInclusive(rng, 1, 14);
     const status = STATUS_POOL[Math.floor(rng() * STATUS_POOL.length)];
@@ -95,12 +98,15 @@ export function generateWorkOrders(
     nextAvailableByCenter[centerId] = endUtcDay + 1 + gapDays;
 
     workOrders.push({
-      id: `wo-${String(i + 1).padStart(5, '0')}`,
-      workCenterId: centerId,
-      name: `Work Order ${String(i + 1).padStart(5, '0')}`,
-      status,
-      startsAtIso: utcDayToIso(startUtcDay),
-      endsAtIso: utcDayToIso(endUtcDay)
+      docId: `wo-${String(i + 1).padStart(5, '0')}`,
+      docType: 'workOrder',
+      data: {
+        workCenterId: centerId,
+        name: `Work Order ${String(i + 1).padStart(5, '0')}`,
+        status,
+        startDate: utcDayToIso(startUtcDay),
+        endDate: utcDayToIso(endUtcDay)
+      }
     });
   }
 
