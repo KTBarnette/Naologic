@@ -28,38 +28,38 @@
 
 .work-orders-page {
   min-height: 100vh;
-  padding: 16px 44px 40px 100px;
+  padding: 20px 40px 34px 56px;
   box-sizing: border-box;
 }
 
 .brand-row {
-  height: 28px;
+  height: 24px;
   display: flex;
   align-items: center;
 }
 
 .brand-mark {
   color: #3041e8;
-  font-size: 14px;
-  letter-spacing: 2px;
+  font-size: 11px;
+  letter-spacing: 1.2px;
   line-height: 1;
   font-weight: 500;
 }
 
 .page-content {
-  margin-top: 56px;
+  margin-top: 22px;
 }
 
 .page-title {
   margin: 0;
-  font-size: 23px;
+  font-size: 34px;
   line-height: 1.1;
-  font-weight: 700;
+  font-weight: 600;
   color: #10193d;
 }
 
 .timeline-toolbar {
-  margin-top: 32px;
+  margin-top: 24px;
   position: relative;
   z-index: 35;
 }
@@ -68,32 +68,32 @@
   height: 28px;
   border: 1px solid #e5e9f3;
   border-radius: 6px;
-  background: #f2f4fa;
+  background: #f7f9fe;
   color: #2a335a;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
 }
 
 .timescale-label {
   color: #808aa8;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .timescale-value {
   color: #3d4be9;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .timescale-chevron {
   color: #7280a2;
-  font-size: 12px;
+  font-size: 11px;
   margin-top: -3px;
 }
 
@@ -130,9 +130,9 @@
 }
 
 .timeline-layout {
-  margin-top: 22px;
+  margin-top: 14px;
   display: grid;
-  grid-template-columns: 382px minmax(0, 1fr);
+  grid-template-columns: 274px minmax(0, 1fr);
   border-top: 1px solid var(--line);
 }
 
@@ -144,22 +144,22 @@
 
 .panel-header,
 .work-center-row {
-  height: 48px;
+  height: 36px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  padding: 0 30px;
+  padding: 0 22px;
   border-bottom: 1px solid var(--line);
 }
 
 .panel-header {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--muted);
   font-weight: 500;
 }
 
 .work-center-row {
-  font-size: 14px;
+  font-size: 11px;
   color: #151d40;
   font-weight: 500;
 }
@@ -188,15 +188,15 @@
 
 .today-pill {
   position: absolute;
-  top: 10px;
-  height: 24px;
-  line-height: 24px;
-  transform: translateX(-2px);
+  top: 6px;
+  height: 18px;
+  line-height: 18px;
+  transform: translateX(-1px);
   border-radius: 6px;
-  padding: 0 10px;
+  padding: 0 9px;
   background: var(--today-pill-bg);
   color: var(--today-pill-text);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
   z-index: 5;
   white-space: nowrap;
@@ -204,7 +204,7 @@
 
 .timeline-header-row {
   display: flex;
-  height: 48px;
+  height: 24px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -220,13 +220,13 @@
 }
 
 .header-top {
-  font-size: 12px;
+  font-size: 11px;
   color: #68759b;
   line-height: 1.1;
 }
 
 .header-bottom {
-  font-size: 12px;
+  font-size: 11px;
   color: #68759b;
   line-height: 1.1;
 }
@@ -234,7 +234,7 @@
 .timeline-data-row {
   position: relative;
   display: flex;
-  height: 48px;
+  height: 36px;
   cursor: pointer;
 }
 
@@ -256,11 +256,11 @@
 
 .add-slot {
   position: absolute;
-  top: 6px;
+  top: 3px;
   transform: translateX(-50%);
-  width: 112px;
-  height: 34px;
-  border-radius: 10px;
+  width: 110px;
+  height: 30px;
+  border-radius: 8px;
   border: 1px solid #b0b9ff;
   background: #cfd4fb;
   z-index: 7;
@@ -268,14 +268,14 @@
 
 .row-hover-pill {
   position: absolute;
-  top: -24px;
+  top: -18px;
   transform: translateX(-50%);
-  height: 24px;
-  border-radius: 10px;
+  height: 20px;
+  border-radius: 8px;
   background: #6d7798;
   color: #fff;
-  font-size: 12px;
-  line-height: 24px;
+  font-size: 11px;
+  line-height: 20px;
   padding: 0 9px;
   white-space: nowrap;
   z-index: 8;
@@ -292,36 +292,39 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  height: 38px;
-  border-radius: 10px;
+  height: 28px;
+  border-radius: 8px;
   border: 1px solid #cfd6ea;
-  background: #f6f8ff;
+  background: #f4f6ff;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 9px;
+  gap: 8px;
+  padding: 0 8px;
   box-sizing: border-box;
   pointer-events: auto;
   cursor: pointer;
 }
 
 .work-order-name {
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
   color: #172043;
   font-weight: 500;
   white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-badge,
 .status-pill {
-  height: 22px;
-  border-radius: 7px;
+  height: 18px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
-  font-size: 12px;
-  line-height: 22px;
+  font-size: 10px;
+  line-height: 18px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -348,15 +351,22 @@
 
 .work-order-actions {
   margin-left: auto;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.work-order-bar:hover .work-order-actions,
+.work-order-actions.is-open {
+  opacity: 1;
 }
 
 .work-order-kebab {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   color: #707c9f;
-  font-size: 14px;
+  font-size: 11px;
   line-height: 1;
   background: #d8dcf5;
   padding: 0;

@@ -86,7 +86,11 @@
                     <span class="status-badge" [class]="'status-badge status-' + workOrder.data.status">
                       {{ statusLabel(workOrder.data.status) }}
                     </span>
-                    <span class="work-order-actions" (click)="$event.stopPropagation()">
+                    <span
+                      class="work-order-actions"
+                      [class.is-open]="actionsMenu?.workOrderId === workOrder.docId"
+                      (click)="$event.stopPropagation()"
+                    >
                       <button
                         type="button"
                         class="work-order-kebab"

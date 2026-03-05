@@ -37,6 +37,8 @@ const STRESS_WORK_ORDER_COUNT = 10000;
 const STRESS_RANGE_START_ISO = '2025-01-01';
 /** End date range used to generate stress-mode work orders. */
 const STRESS_RANGE_END_ISO = '2027-12-31';
+/** Frozen reference date used to match provided design screenshot. */
+const REFERENCE_ANCHOR_ISO = '2024-09-15';
 
 @Component({
   selector: 'app-timeline',
@@ -50,9 +52,9 @@ export class TimelineComponent implements AfterViewInit {
   readonly workCenters: WorkCenterDocument[];
   readonly workOrders: WorkOrderDocument[];
 
-  readonly dayColWidthPx = 84;
+  readonly dayColWidthPx = 76;
   readonly weekColWidthPx = 168;
-  readonly monthColWidthPx = 224;
+  readonly monthColWidthPx = 82;
   readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
   readonly statusOptions: WorkOrderStatus[] = ['open', 'in-progress', 'complete', 'blocked'];
 
@@ -63,7 +65,7 @@ export class TimelineComponent implements AfterViewInit {
   private readonly monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   private workOrdersByWorkCenterId: Partial<Record<string, WorkOrderDocument[]>> = {};
 
-  timescale: Timescale = 'day';
+  timescale: Timescale = 'month';
   visibleColumns: TimelineColumn[] = [];
   panelOpen = false;
   panelMode: 'create' | 'edit' = 'create';
@@ -116,7 +118,16 @@ export class TimelineComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    queueMicrotask(() => this.scrollToToday(false));
+    queueMicrotask(() => {
+      if (this.timescale === 'month') {
+        const timelinePanel = this.timelineScrollPanelRef?.nativeElement;
+        if (timelinePanel) {
+          timelinePanel.scrollLeft = 0;
+        }
+        return;
+      }
+      this.scrollToToday(false);
+    });
   }
 
   /** Returns active timeline column width in pixels based on selected timescale. */
@@ -165,7 +176,17 @@ export class TimelineComponent implements AfterViewInit {
     this.timescale = next;
     this.timescaleMenuOpen = false;
     this.rebuildColumns();
-    queueMicrotask(() => this.scrollToToday(false));
+    queueMicrotask(() => {
+      const timelinePanel = this.timelineScrollPanelRef?.nativeElement;
+      if (!timelinePanel) {
+        return;
+      }
+      if (this.timescale === 'month') {
+        timelinePanel.scrollLeft = 0;
+        return;
+      }
+      this.scrollToToday(false);
+    });
   }
 
   /** Returns human-readable label for timescale menu and trigger. */
@@ -186,6 +207,9 @@ export class TimelineComponent implements AfterViewInit {
 
   /** Pixel offset of current local time within the UTC-based timeline axis. */
   get todayOffsetPx(): number {
+    if (this.timescale === 'month') {
+      return this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO));
+    }
     const now = new Date();
     const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
     return this.utcDayToPx(nowLocalDayFloat);
@@ -584,17 +608,17 @@ export class TimelineComponent implements AfterViewInit {
 
   /** Recomputes timeline columns for current timescale. */
   private rebuildColumns(): void {
-    const todayUtcDay = this.toUtcDay(new Date());
+    const anchorUtcDay = this.isoToUtcDay(REFERENCE_ANCHOR_ISO);
 
     if (this.timescale === 'week') {
-      this.visibleColumns = this.buildWeekColumns(todayUtcDay);
+      this.visibleColumns = this.buildWeekColumns(anchorUtcDay);
       return;
     }
     if (this.timescale === 'month') {
-      this.visibleColumns = this.buildMonthColumns(todayUtcDay);
+      this.visibleColumns = this.buildReferenceMonthColumns(anchorUtcDay);
       return;
     }
-    this.visibleColumns = this.buildDayColumns(todayUtcDay);
+    this.visibleColumns = this.buildDayColumns(anchorUtcDay);
   }
 
   /** Builds +/-14 day columns around today. */
@@ -639,14 +663,13 @@ export class TimelineComponent implements AfterViewInit {
     return columns;
   }
 
-  /** Builds +/-6 month columns around current month. */
-  private buildMonthColumns(todayUtcDay: number): TimelineColumn[] {
-    const today = new Date();
-    const baseYear = today.getUTCFullYear();
-    const baseMonth = today.getUTCMonth();
+  /** Builds fixed Aug 2024 -> Mar 2025 month columns to match reference capture. */
+  private buildReferenceMonthColumns(todayUtcDay: number): TimelineColumn[] {
+    const baseYear = 2024;
+    const baseMonth = 7;
     const columns: TimelineColumn[] = [];
 
-    for (let offset = -6; offset <= 6; offset += 1) {
+    for (let offset = 0; offset <= 7; offset += 1) {
       const startUtcDay = Date.UTC(baseYear, baseMonth + offset, 1) / this.msPerDay;
       const endUtcDay = Date.UTC(baseYear, baseMonth + offset + 1, 1) / this.msPerDay;
       columns.push({
