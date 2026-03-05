@@ -295,6 +295,9 @@ export class TimelineComponent {
   /** Closes actions menu when clicking anywhere outside of it. */
   @HostListener('document:mousedown', ['$event'])
   onDocumentMouseDown(event: MouseEvent): void {
+    if (this.isInsideNgSelect(event)) {
+      return;
+    }
     if (!this.actionsMenu) {
       return;
     }
@@ -303,6 +306,24 @@ export class TimelineComponent {
       return;
     }
     this.closeActionsMenu();
+  }
+
+  /** Checks whether event target is inside ng-select control or its body-appended dropdown. */
+  private isInsideNgSelect(event: Event): boolean {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return false;
+    }
+    if (target.closest('ng-select')) {
+      return true;
+    }
+    if (target.closest('.ng-dropdown-panel')) {
+      return true;
+    }
+    if (target.closest('.ng-select')) {
+      return true;
+    }
+    return false;
   }
 
   /** Opens panel in edit mode and hydrates form from work-order data. */
@@ -350,19 +371,51 @@ export class TimelineComponent {
 
   /** Syncs start datepicker selection into form ISO field. */
   onStartDatePicked(date: NgbDateStruct | null): void {
-    this.workOrderForm.controls.startsAtIso.setValue(this.dateStructToIso(date));
+    this.startDateStructValue = date;
+    const startIso = date ? this.structToIsoDateOnly(date) : '';
+    this.workOrderForm.controls.startsAtIso.setValue(startIso);
     this.workOrderForm.controls.startsAtIso.markAsTouched();
+    if (!date || !this.endDateStructValue) {
+      return;
+    }
+    if (this.structToDate(date).getTime() <= this.structToDate(this.endDateStructValue).getTime()) {
+      return;
+    }
+    this.endDateStructValue = date;
+    this.workOrderForm.controls.endsAtIso.setValue(startIso);
+    this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
   /** Syncs end datepicker selection into form ISO field. */
   onEndDatePicked(date: NgbDateStruct | null): void {
-    this.workOrderForm.controls.endsAtIso.setValue(this.dateStructToIso(date));
+    this.endDateStructValue = date;
+    if (!date) {
+      this.workOrderForm.controls.endsAtIso.setValue('');
+      this.workOrderForm.controls.endsAtIso.markAsTouched();
+      return;
+    }
+    const startsAt = this.startDateStructValue;
+    if (startsAt && this.structToDate(date).getTime() < this.structToDate(startsAt).getTime()) {
+      this.endDateStructValue = startsAt;
+      this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(startsAt));
+      this.workOrderForm.controls.endsAtIso.markAsTouched();
+      return;
+    }
+    this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(date));
     this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
   /** Tooltip content for a work-order bar. */
   formatWorkOrderTooltip(workOrder: WorkOrderDocument): string {
     return `${workOrder.name}\n${workOrder.status}\n${workOrder.startsAtIso} -> ${workOrder.endsAtIso}`;
+  }
+
+  /** User-facing status label shown in ng-select options and selected value pill. */
+  statusLabel(status: WorkOrderStatus): string {
+    if (status === 'in-progress') {
+      return 'In progress';
+    }
+    return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
   /** Handles Escape key for dismissing menu first, then side panel. */
@@ -776,11 +829,13 @@ export class TimelineComponent {
     return { year, month, day };
   }
 
-  /** Converts ng-bootstrap date struct to ISO date string. */
-  private dateStructToIso(date: NgbDateStruct | null): string {
-    if (!date) {
-      return '';
-    }
+  /** Converts ng-bootstrap date struct into local Date for comparisons. */
+  private structToDate(date: NgbDateStruct): Date {
+    return new Date(date.year, date.month - 1, date.day);
+  }
+
+  /** Converts ng-bootstrap date struct to ISO date string (YYYY-MM-DD). */
+  private structToIsoDateOnly(date: NgbDateStruct): string {
     const yyyy = String(date.year).padStart(4, '0');
     const mm = String(date.month).padStart(2, '0');
     const dd = String(date.day).padStart(2, '0');

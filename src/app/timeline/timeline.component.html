@@ -159,14 +159,21 @@
     <label class="field">
       <span>Status</span>
       <ng-select
+        class="status-select"
         formControlName="status"
+        appendTo="body"
+        dropdownPosition="bottom"
         [items]="statusOptions"
         [clearable]="false"
         [searchable]="false"
         [placeholder]="'Select status'"
       >
-        <ng-template ng-option-tmp let-item="item">{{ item | titlecase }}</ng-template>
-        <ng-template ng-label-tmp let-item="item">{{ item | titlecase }}</ng-template>
+        <ng-template ng-option-tmp let-item="item">
+          <span class="status-pill" [class]="'status-pill status-' + item">{{ statusLabel(item) }}</span>
+        </ng-template>
+        <ng-template ng-label-tmp let-item="item">
+          <span class="status-pill" [class]="'status-pill status-' + item">{{ statusLabel(item) }}</span>
+        </ng-template>
       </ng-select>
     </label>
     <div class="field">
@@ -182,6 +189,7 @@
       <ngb-datepicker
         [ngModel]="endDateStructValue"
         (ngModelChange)="onEndDatePicked($event)"
+        [minDate]="$any(startDateStructValue ?? undefined)"
         [ngModelOptions]="{ standalone: true }"
       ></ngb-datepicker>
     </div>
