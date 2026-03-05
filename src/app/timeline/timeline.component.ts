@@ -371,37 +371,39 @@ export class TimelineComponent {
 
   /** Syncs start datepicker selection into form ISO field. */
   onStartDatePicked(date: NgbDateStruct | null): void {
-    this.startDateStructValue = date;
-    const startIso = date ? this.structToIsoDateOnly(date) : '';
+    const selectedStart = date ? this.cloneDateStruct(date) : null;
+    this.startDateStructValue = selectedStart;
+    const startIso = selectedStart ? this.structToIsoDateOnly(selectedStart) : '';
     this.workOrderForm.controls.startsAtIso.setValue(startIso);
     this.workOrderForm.controls.startsAtIso.markAsTouched();
-    if (!date || !this.endDateStructValue) {
+    if (!selectedStart || !this.endDateStructValue) {
       return;
     }
-    if (this.structToDate(date).getTime() <= this.structToDate(this.endDateStructValue).getTime()) {
+    if (this.structToDate(selectedStart).getTime() <= this.structToDate(this.endDateStructValue).getTime()) {
       return;
     }
-    this.endDateStructValue = date;
+    this.endDateStructValue = this.cloneDateStruct(selectedStart);
     this.workOrderForm.controls.endsAtIso.setValue(startIso);
     this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
   /** Syncs end datepicker selection into form ISO field. */
   onEndDatePicked(date: NgbDateStruct | null): void {
-    this.endDateStructValue = date;
-    if (!date) {
+    const selectedEnd = date ? this.cloneDateStruct(date) : null;
+    this.endDateStructValue = selectedEnd;
+    if (!selectedEnd) {
       this.workOrderForm.controls.endsAtIso.setValue('');
       this.workOrderForm.controls.endsAtIso.markAsTouched();
       return;
     }
     const startsAt = this.startDateStructValue;
-    if (startsAt && this.structToDate(date).getTime() < this.structToDate(startsAt).getTime()) {
-      this.endDateStructValue = startsAt;
+    if (startsAt && this.structToDate(selectedEnd).getTime() < this.structToDate(startsAt).getTime()) {
+      this.endDateStructValue = this.cloneDateStruct(startsAt);
       this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(startsAt));
       this.workOrderForm.controls.endsAtIso.markAsTouched();
       return;
     }
-    this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(date));
+    this.workOrderForm.controls.endsAtIso.setValue(this.structToIsoDateOnly(selectedEnd));
     this.workOrderForm.controls.endsAtIso.markAsTouched();
   }
 
@@ -832,6 +834,11 @@ export class TimelineComponent {
   /** Converts ng-bootstrap date struct into local Date for comparisons. */
   private structToDate(date: NgbDateStruct): Date {
     return new Date(date.year, date.month - 1, date.day);
+  }
+
+  /** Clones ng-bootstrap date struct to avoid shared object references between pickers. */
+  private cloneDateStruct(date: NgbDateStruct): NgbDateStruct {
+    return { year: date.year, month: date.month, day: date.day };
   }
 
   /** Converts ng-bootstrap date struct to ISO date string (YYYY-MM-DD). */

@@ -140,14 +140,18 @@
 >
   <!-- Side Panel Header -->
   <header class="panel-title-row">
-    <div>
+    <div class="panel-title-group">
       <h2 class="panel-title">{{ panelTitle }}</h2>
+      <p class="panel-subtitle">Specify the dates when the work order will be active.</p>
     </div>
-    <button type="button" class="panel-close-btn" (click)="closePanel()" aria-label="Close">×</button>
+    <div class="panel-header-actions">
+      <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="!canSave" form="work-order-form">Save</button>
+    </div>
   </header>
 
   <!-- Work Order Create/Edit Form -->
-  <form class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
+  <form id="work-order-form" class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
     <div class="field">
       <span>Work Center</span>
       <p class="readonly-value">{{ panelWorkCenterName }}</p>
@@ -176,22 +180,38 @@
         </ng-template>
       </ng-select>
     </label>
-    <div class="field">
+    <div class="field date-field">
       <span>Start Date</span>
-      <ngb-datepicker
+      <input
+        type="text"
+        class="date-input"
+        [value]="startDateStructValue ? (('0' + startDateStructValue.month).slice(-2) + '.' + ('0' + startDateStructValue.day).slice(-2) + '.' + startDateStructValue.year) : ''"
+        placeholder="MM.DD.YYYY"
+        readonly
+        ngbDatepicker
+        #startDatePicker="ngbDatepicker"
         [ngModel]="startDateStructValue"
         (ngModelChange)="onStartDatePicked($event)"
         [ngModelOptions]="{ standalone: true }"
-      ></ngb-datepicker>
+        (click)="startDatePicker.toggle()"
+      />
     </div>
-    <div class="field">
+    <div class="field date-field">
       <span>End Date</span>
-      <ngb-datepicker
+      <input
+        type="text"
+        class="date-input"
+        [value]="endDateStructValue ? (('0' + endDateStructValue.month).slice(-2) + '.' + ('0' + endDateStructValue.day).slice(-2) + '.' + endDateStructValue.year) : ''"
+        placeholder="MM.DD.YYYY"
+        readonly
+        ngbDatepicker
+        #endDatePicker="ngbDatepicker"
         [ngModel]="endDateStructValue"
         (ngModelChange)="onEndDatePicked($event)"
-        [minDate]="$any(startDateStructValue ?? undefined)"
+        [minDate]="$any(startDateStructValue || undefined)"
         [ngModelOptions]="{ standalone: true }"
-      ></ngb-datepicker>
+        (click)="endDatePicker.toggle()"
+      />
     </div>
 
     <!-- Validation and save error messages -->
@@ -213,10 +233,6 @@
       @if (panelMode === 'edit') {
         <button type="button" class="btn-danger" (click)="deleteWorkOrder()">Delete</button>
       }
-      <button type="button" class="btn-secondary" (click)="closePanel()">Cancel</button>
-      <button type="submit" class="btn-primary" [disabled]="!canSave">
-        {{ panelMode === 'create' ? 'Create' : 'Save' }}
-      </button>
     </div>
   </form>
 </aside>
