@@ -23,6 +23,7 @@ type TimelineColumn = {
 /** Floating actions menu position + target work order id. */
 type ActionsMenuState = {
   workOrderId: string;
+  workCenterId: string;
   leftPx: number;
   topPx: number;
 };
@@ -227,7 +228,23 @@ export class TimelineComponent implements AfterViewInit {
     const endExclusiveUtcDay = this.isoToUtcDay(workOrder.data.endDate) + 1;
     const startPx = this.snapPx(this.utcDayToPx(startUtcDay));
     const endPx = this.snapPx(this.utcDayToPx(endExclusiveUtcDay));
-    return Math.max(1, endPx - startPx);
+    const rangeWidthPx = Math.max(1, endPx - startPx);
+    return Math.max(rangeWidthPx, this.minBarWidthPx(workOrder));
+  }
+
+  /** Ensures short-duration bars still leave room for label and status pill. */
+  private minBarWidthPx(workOrder: WorkOrderDocument): number {
+    const statusWidthByType: Record<WorkOrderStatus, number> = {
+      open: 66,
+      'in-progress': 96,
+      complete: 84,
+      blocked: 80
+    };
+    const nameWidth = Math.min(320, 20 + workOrder.data.name.length * 6.4);
+    const statusWidth = statusWidthByType[workOrder.data.status] ?? 80;
+    const kebabReserve = 22;
+    const outerPadding = 22;
+    return this.snapPx(nameWidth + statusWidth + kebabReserve + outerPadding);
   }
 
   /** Returns work orders for one center, filtered to visible timeline range. */
@@ -308,6 +325,11 @@ export class TimelineComponent implements AfterViewInit {
       return;
     }
 
+    const workOrder = this.workOrders.find((order) => order.docId === workOrderId);
+    if (!workOrder) {
+      return;
+    }
+
     const timelinePanel = kebabButton.closest('.timeline-panel') as HTMLElement | null;
     if (!timelinePanel) {
       return;
@@ -317,6 +339,7 @@ export class TimelineComponent implements AfterViewInit {
     const panelRect = timelinePanel.getBoundingClientRect();
     this.actionsMenu = {
       workOrderId,
+      workCenterId: workOrder.data.workCenterId,
       leftPx: buttonRect.right - panelRect.left + timelinePanel.scrollLeft,
       topPx: buttonRect.bottom - panelRect.top + timelinePanel.scrollTop + 6
     };
