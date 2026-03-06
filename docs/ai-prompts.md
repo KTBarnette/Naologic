@@ -80,9 +80,10 @@ During development, clicking "Edit" caused the UI to freeze due to expensive val
 **Purpose:** Align implementation to the frontend technical test rubric.
 
 - Prompt summary:
-  > Update data contracts to `docId/docType/data`, enforce Day default timescale, restore dynamic today-centered columns, and ensure Create/Edit panel button text matches requirements.
+  > Update data contracts to `docId/docType/data`, keep Month default per product decision, align panel actions, and document stress-mode behavior.
 - Outcome:
   - Data model now matches required document shape
-  - Sample data expanded to 5+ work centers and 8+ work orders with all statuses
-  - Create/Edit flows and overlap validation retained with updated schema
+  - Sample data expanded to 5 work centers and 9 work orders with all statuses
+  - Create/Edit flows and overlap validation retained with updated schema and non-overlapping examples
+  - Stress mode enabled via `?stress` for 50 work centers / 10,000 work orders
   - Added Circular Std font include and updated README requirement coverage

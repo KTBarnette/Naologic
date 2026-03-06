@@ -17,6 +17,8 @@ Stress mode (50 work centers / 10,000 orders):
 http://localhost:4200/?stress
 ```
 
+Also works with `http://localhost:4200/?stress=1`.
+
 ## Libraries Used
 
 - `@ng-select/ng-select`: status picker in the create/edit panel with a compact selectable dropdown UX.
@@ -25,13 +27,14 @@ http://localhost:4200/?stress
 ## Features Implemented
 
 - Timeline grid with fixed work-center column and horizontally scrollable date area.
-- Timescale switcher for `Day` (default), `Week`, and `Month`.
-- Current-day indicator with centered initial viewport.
+- Timescale switcher for `Month` (default), `Week`, and `Day`.
+- Current-day indicator rendered across the timeline.
 - Work-order bars with status badges and per-bar `Edit/Delete` menu.
 - Create panel (click empty timeline row) with prefilled start date and end date (+7 days).
 - Edit panel (kebab `Edit`) with pre-populated values and `Save` action.
 - Overlap validation on create/edit within the same work center.
 - Click-outside and `Escape` handling for menu/panel dismissal.
+- Stress dataset mode via query param (`?stress`) with 50 work centers and 10,000 work orders.
 
 ## Data Model
 
@@ -39,6 +42,12 @@ Documents follow the technical test structure:
 
 - `WorkCenterDocument`: `docId`, `docType: 'workCenter'`, `data.name`
 - `WorkOrderDocument`: `docId`, `docType: 'workOrder'`, `data.{name, workCenterId, status, startDate, endDate}`
+
+Sample dataset includes:
+
+- 5 manufacturing work centers
+- 9 work orders across all 4 statuses
+- Multiple non-overlapping work orders on the same work center
 
 ## Architecture Notes
 
