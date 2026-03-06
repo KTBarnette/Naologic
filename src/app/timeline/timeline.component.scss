@@ -539,7 +539,7 @@
   gap: 6px;
 }
 
-.field span {
+.field > span {
   font-size: 12px;
   color: #586487;
 }
@@ -583,6 +583,33 @@
   border: 1px solid #bec8dd;
   border-radius: 6px;
   padding: 0 10px 0 8px;
+  background: #fff;
+  align-items: center;
+}
+
+:host ::ng-deep .status-select .ng-value-container {
+  display: flex;
+  align-items: center;
+  padding-left: 0;
+}
+
+:host ::ng-deep .status-select.ng-select-single .ng-select-container .ng-value-container .ng-input {
+  top: auto;
+  padding-left: 0;
+}
+
+:host ::ng-deep .status-select .ng-placeholder {
+  color: #9ca7c2;
+}
+
+:host ::ng-deep .status-select .ng-value {
+  margin-bottom: 0;
+}
+
+:host ::ng-deep .status-select .status-pill {
+  background: #e2ebff;
+  color: #3544e8;
+  border: 1px solid #cad8ff;
 }
 
 :host ::ng-deep .status-select.ng-select-focused .ng-select-container {
@@ -592,29 +619,57 @@
 
 :host ::ng-deep .status-select .ng-arrow-wrapper {
   width: 16px;
+  padding-right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:host ::ng-deep .status-select .ng-arrow {
+  border-color: #9aa5c4 transparent transparent;
+  border-style: solid;
+  border-width: 5px 4px 0;
+}
+
+:host ::ng-deep .status-select.ng-select-opened .ng-arrow {
+  border-color: transparent transparent #9aa5c4;
+  border-width: 0 4px 5px;
 }
 
 ::ng-deep .ng-dropdown-panel {
+  background: #fff;
   border: 1px solid #dde4ef;
   border-radius: 8px;
   box-shadow: 0 8px 16px rgba(20, 30, 58, 0.16);
   overflow: hidden;
+  z-index: 1200;
 }
 
 ::ng-deep .ng-dropdown-panel .ng-option {
+  display: flex;
+  align-items: center;
   min-height: 38px;
-  padding: 8px 10px;
+  padding: 0 12px;
   font-size: 13px;
+  line-height: 16px;
   color: #151e40;
+  background: #fff;
 }
 
-::ng-deep .ng-dropdown-panel .ng-option:hover {
+::ng-deep .ng-dropdown-panel .ng-option.ng-option-marked {
   background: #f5f7fd;
 }
 
-::ng-deep .ng-dropdown-panel .ng-option-selected {
+::ng-deep .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected,
+::ng-deep .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked {
   color: #3544e8;
-  background: #fff;
+  background: #e8f1ff;
+}
+
+::ng-deep .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected .ng-option-label,
+::ng-deep .ng-dropdown-panel .ng-dropdown-panel-items .ng-option.ng-option-selected.ng-option-marked .ng-option-label {
+  color: #3544e8;
+  font-weight: 600;
 }
 
 :host ::ng-deep ngb-datepicker {
