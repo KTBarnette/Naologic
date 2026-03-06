@@ -208,24 +208,26 @@ export class TimelineComponent implements AfterViewInit {
   /** Pixel offset of current local time within the UTC-based timeline axis. */
   get todayOffsetPx(): number {
     if (this.timescale === 'month') {
-      return this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO));
+      return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO)));
     }
     const now = new Date();
     const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
-    return this.utcDayToPx(nowLocalDayFloat);
+    return this.snapPx(this.utcDayToPx(nowLocalDayFloat));
   }
 
   /** Left pixel offset for a work-order bar from its start date. */
   barLeftPx(workOrder: WorkOrderDocument): number {
     const orderStartDay = this.isoToUtcDay(workOrder.data.startDate);
-    return this.utcDayToPx(orderStartDay);
+    return this.snapPx(this.utcDayToPx(orderStartDay));
   }
 
   /** Width of a work-order bar in pixels including the end day. */
   barWidthPx(workOrder: WorkOrderDocument): number {
     const startUtcDay = this.isoToUtcDay(workOrder.data.startDate);
     const endExclusiveUtcDay = this.isoToUtcDay(workOrder.data.endDate) + 1;
-    return this.utcDayToPx(endExclusiveUtcDay) - this.utcDayToPx(startUtcDay);
+    const startPx = this.snapPx(this.utcDayToPx(startUtcDay));
+    const endPx = this.snapPx(this.utcDayToPx(endExclusiveUtcDay));
+    return Math.max(1, endPx - startPx);
   }
 
   /** Returns work orders for one center, filtered to visible timeline range. */
@@ -355,7 +357,7 @@ export class TimelineComponent implements AfterViewInit {
       return;
     }
     const maxScrollLeft = Math.max(0, timelinePanel.scrollWidth - timelinePanel.clientWidth);
-    const target = this.todayOffsetPx - timelinePanel.clientWidth / 2;
+    const target = this.snapPx(this.todayOffsetPx - timelinePanel.clientWidth / 2);
     timelinePanel.scrollTo({
       left: Math.min(maxScrollLeft, Math.max(0, target)),
       behavior: smooth ? 'smooth' : 'auto'
@@ -727,6 +729,15 @@ export class TimelineComponent implements AfterViewInit {
     const colStartPx = colIndex * this.colWidthPx;
     const fractionWithinColumn = (px - colStartPx) / this.colWidthPx;
     return column.startUtcDay + fractionWithinColumn * (column.endUtcDay - column.startUtcDay);
+  }
+
+  /** Snaps coordinates to physical pixels to keep edges crisp across display DPIs. */
+  private snapPx(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    const dpr = globalThis.devicePixelRatio || 1;
+    return Math.round(value * dpr) / dpr;
   }
 
   /** Returns Monday-based start-of-week UTC day for a given UTC day. */

@@ -38,7 +38,7 @@
       </aside>
 
       <div #timelineScrollPanel class="timeline-panel">
-        <div class="timeline-grid">
+        <div class="timeline-grid" [style.--col-w.px]="colWidthPx">
           <div class="today-indicator" [style.left.px]="todayOffsetPx"></div>
           <div class="today-pill" [style.left.px]="todayOffsetPx">{{ currentIndicatorLabel }}</div>
 

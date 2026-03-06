@@ -42,7 +42,7 @@
   color: #3041e8;
   font-size: 11px;
   letter-spacing: 1.2px;
-  line-height: 1;
+  line-height: 12px;
   font-weight: 500;
 }
 
@@ -83,18 +83,22 @@
   color: #808aa8;
   font-size: 11px;
   font-weight: 500;
+  line-height: 12px;
 }
 
 .timescale-value {
   color: #3d4be9;
   font-size: 11px;
   font-weight: 600;
+  line-height: 12px;
 }
 
 .timescale-chevron {
   color: #7280a2;
   font-size: 11px;
-  margin-top: -3px;
+  line-height: 12px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .timescale-menu {
@@ -134,6 +138,7 @@
   display: grid;
   grid-template-columns: 274px minmax(0, 1fr);
   border-top: 1px solid var(--line);
+  min-height: clamp(520px, calc(100vh - 200px), 824px);
 }
 
 .work-centers-panel {
@@ -169,11 +174,30 @@
   overflow-x: auto;
   overflow-y: visible;
   background: var(--surface);
+  border-right: 1px solid var(--line);
 }
 
 .timeline-grid {
   position: relative;
   width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  background: #f8f9fd;
+}
+
+.timeline-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(var(--col-w) - 1px),
+    #e2e7f1 calc(var(--col-w) - 1px),
+    #e2e7f1 var(--col-w)
+  );
+  pointer-events: none;
+  z-index: 0;
 }
 
 .today-indicator {
@@ -181,6 +205,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
+  transform: translateX(-50%);
   background: var(--today-line);
   z-index: 3;
   pointer-events: none;
@@ -191,7 +216,7 @@
   top: 6px;
   height: 18px;
   line-height: 18px;
-  transform: translateX(-1px);
+  transform: translateX(-50%);
   border-radius: 6px;
   padding: 0 9px;
   background: var(--today-pill-bg);
@@ -206,6 +231,9 @@
   display: flex;
   height: 24px;
   border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 1;
+  background: #fff;
 }
 
 .timeline-header-cell {
@@ -222,13 +250,13 @@
 .header-top {
   font-size: 11px;
   color: #68759b;
-  line-height: 1.1;
+  line-height: 12px;
 }
 
 .header-bottom {
   font-size: 11px;
   color: #68759b;
-  line-height: 1.1;
+  line-height: 12px;
 }
 
 .timeline-data-row {
@@ -236,6 +264,7 @@
   display: flex;
   height: 36px;
   cursor: pointer;
+  z-index: 1;
 }
 
 .timeline-data-cell {
@@ -307,7 +336,7 @@
 
 .work-order-name {
   font-size: 11px;
-  line-height: 1;
+  line-height: 12px;
   color: #172043;
   font-weight: 500;
   white-space: nowrap;
