@@ -8,7 +8,7 @@ import { generateWorkCenters, generateWorkOrders } from '../data/stress-document
 import { WorkCenterDocument, WorkOrderDocument, WorkOrderStatus } from '../types/docs';
 
 /** Supported timeline zoom levels. */
-type Timescale = 'day' | 'week' | 'month';
+type Timescale = 'hour' | 'day' | 'week' | 'month';
 
 /** Rendered timeline column metadata for header labels and date ranges. */
 type TimelineColumn = {
@@ -53,15 +53,18 @@ export class TimelineComponent implements AfterViewInit {
   readonly workCenters: WorkCenterDocument[];
   readonly workOrders: WorkOrderDocument[];
 
+  readonly hourColWidthPx = 96;
   readonly dayColWidthPx = 76;
   readonly weekColWidthPx = 168;
   readonly monthColWidthPx = 82;
-  readonly timescaleOptions: Timescale[] = ['day', 'week', 'month'];
+  readonly timescaleOptions: Timescale[] = ['hour', 'day', 'week', 'month'];
   readonly statusOptions: WorkOrderStatus[] = ['open', 'in-progress', 'complete', 'blocked'];
 
   private readonly msPerDay = 1000 * 60 * 60 * 24;
   private readonly dayTopFormatter = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
   private readonly dayBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  private readonly hourTopFormatter = new Intl.DateTimeFormat('en-US', { hour: 'numeric', timeZone: 'UTC' });
+  private readonly hourBottomFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   private readonly weekFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   private readonly monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   private workOrdersByWorkCenterId: Partial<Record<string, WorkOrderDocument[]>> = {};
@@ -133,6 +136,9 @@ export class TimelineComponent implements AfterViewInit {
 
   /** Returns active timeline column width in pixels based on selected timescale. */
   get colWidthPx(): number {
+    if (this.timescale === 'hour') {
+      return this.hourColWidthPx;
+    }
     if (this.timescale === 'week') {
       return this.weekColWidthPx;
     }
@@ -156,6 +162,9 @@ export class TimelineComponent implements AfterViewInit {
   get currentIndicatorLabel(): string {
     if (this.timescale === 'month') {
       return 'Current month';
+    }
+    if (this.timescale === 'hour') {
+      return 'Current hour';
     }
     if (this.timescale === 'week') {
       return 'Current week';
@@ -210,6 +219,9 @@ export class TimelineComponent implements AfterViewInit {
   get todayOffsetPx(): number {
     if (this.timescale === 'month') {
       return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO)));
+    }
+    if (this.timescale === 'hour') {
+      return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO) + 0.5));
     }
     const now = new Date();
     const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
@@ -635,6 +647,10 @@ export class TimelineComponent implements AfterViewInit {
   private rebuildColumns(): void {
     const anchorUtcDay = this.isoToUtcDay(REFERENCE_ANCHOR_ISO);
 
+    if (this.timescale === 'hour') {
+      this.visibleColumns = this.buildHourColumns(anchorUtcDay + 0.5);
+      return;
+    }
     if (this.timescale === 'week') {
       this.visibleColumns = this.buildWeekColumns(anchorUtcDay);
       return;
@@ -644,6 +660,27 @@ export class TimelineComponent implements AfterViewInit {
       return;
     }
     this.visibleColumns = this.buildDayColumns(anchorUtcDay);
+  }
+
+  /** Builds +/-72 hour columns around the frozen reference hour. */
+  private buildHourColumns(referenceUtcDayFloat: number): TimelineColumn[] {
+    const columns: TimelineColumn[] = [];
+    const currentHourStartUtcDay = Math.floor(referenceUtcDayFloat * 24) / 24;
+
+    for (let offset = -72; offset <= 72; offset += 1) {
+      const startUtcDay = currentHourStartUtcDay + offset / 24;
+      const endUtcDay = startUtcDay + 1 / 24;
+      columns.push({
+        key: `h-${startUtcDay}`,
+        startUtcDay,
+        endUtcDay,
+        topLabel: this.hourTopFormatter.format(this.utcDayToDate(startUtcDay)),
+        bottomLabel: this.hourBottomFormatter.format(this.utcDayToDate(startUtcDay)),
+        containsToday: startUtcDay <= referenceUtcDayFloat && referenceUtcDayFloat < endUtcDay
+      });
+    }
+
+    return columns;
   }
 
   /** Builds +/-14 day columns around today. */
