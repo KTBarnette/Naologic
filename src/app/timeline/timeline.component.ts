@@ -83,7 +83,6 @@ export class TimelineComponent implements AfterViewInit {
   timescaleMenuOpen = false;
 
   @ViewChild('timelineScrollPanel') private readonly timelineScrollPanelRef?: ElementRef<HTMLElement>;
-  @ViewChild('workOrderNameInput') private readonly workOrderNameInputRef?: ElementRef<HTMLInputElement>;
 
   startDateStructValue: NgbDateStruct | null = null;
   endDateStructValue: NgbDateStruct | null = null;
@@ -218,15 +217,10 @@ export class TimelineComponent implements AfterViewInit {
 
   /** Pixel offset of current local time within the UTC-based timeline axis. */
   get todayOffsetPx(): number {
-    if (this.timescale === 'month') {
-      return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO)));
-    }
     if (this.timescale === 'hour') {
       return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO) + 0.5));
     }
-    const now = new Date();
-    const nowLocalDayFloat = this.toUtcDay(now) + this.localDayFraction(now);
-    return this.snapPx(this.utcDayToPx(nowLocalDayFloat));
+    return this.snapPx(this.utcDayToPx(this.isoToUtcDay(REFERENCE_ANCHOR_ISO)));
   }
 
   /** Left pixel offset for a work-order bar from its start date. */
@@ -606,7 +600,6 @@ export class TimelineComponent implements AfterViewInit {
       endDate: this.addDaysToIso(startDateIso, 7)
     });
     this.recomputeDerivedFormState();
-    this.focusWorkOrderNameInput();
   }
 
   /** Opens panel in edit mode and hydrates form from existing work order. */
@@ -626,19 +619,6 @@ export class TimelineComponent implements AfterViewInit {
       endDate: workOrder.data.endDate
     });
     this.recomputeDerivedFormState();
-    this.focusWorkOrderNameInput();
-  }
-
-  /** Moves focus to the work-order name field when panel opens. */
-  private focusWorkOrderNameInput(): void {
-    queueMicrotask(() => {
-      const nameInput = this.workOrderNameInputRef?.nativeElement;
-      if (!nameInput) {
-        return;
-      }
-      nameInput.focus();
-      nameInput.select();
-    });
   }
 
   /** Rebuilds lookup map of work orders grouped by work center id. */

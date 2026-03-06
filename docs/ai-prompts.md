@@ -1,89 +1,119 @@
+# AI Prompt Log
+
+This file tracks major AI-assisted prompts and decisions used to build and finish the Work Order Schedule Timeline test.
+
 ## Phase 1 – Layout Skeleton (Codex)
-**Purpose:** Generate a layout-only Angular timeline skeleton.
+**Purpose:** Build the base shell before adding timeline math.
 
 - Prompt summary:
   > Build standalone Angular structure for fixed left work-center column + horizontally scrollable timeline grid. Exclude business logic/date math.
 - Outcome:
-  - Base layout with aligned header/rows
-  - Clean starting point for timeline logic
+  - Base two-panel layout (fixed left labels + scrollable right grid)
+  - Aligned header and row scaffolding ready for feature work
 
-## Phase 2 – Day Timeline & Today Indicator (AI-assisted)
-**Purpose:** Convert layout to a real date-based day timeline.
+## Phase 2 – Timeline Axis + Today Indicator (AI-assisted)
+**Purpose:** Move from static layout to date-aware timeline rendering.
 
 - Prompt summary:
-  > Add real day columns around today and a vertical today indicator while keeping layout structure.
+  > Add date columns and a current-day indicator while preserving layout structure.
 - Outcome:
-  - Day-based columns centered on today
-  - Today indicator aligned to timeline dates
+  - Date-based columns and indicator rendering
+  - Baseline utilities for date-to-pixel positioning
 
-## Phase 3 – Static Work Orders (AI-assisted)
-**Purpose:** Render typed sample work orders as non-interactive bars.
+## Phase 3 – Typed Data + Work Order Bars (AI-assisted)
+**Purpose:** Introduce the required data contracts and bar rendering.
 
 - Prompt summary:
-  > Add strict document types, sample manufacturing data, and day-based bar positioning.
+  > Add strict document types, sample manufacturing data, and bar positioning from start/end dates.
 - Outcome:
-  - Added typed docs + sample data
-  - Static work-order bars with status badges
+  - `docId/docType/data` model adopted
+  - Sample work centers/work orders rendered as status-tagged bars
 
-## Phase 4 – SCSS Structural Pass (Codex)
-**Purpose:** Normalize sizing/grid constants and alignment.
+## Phase 4 – SCSS Structure Pass (Codex)
+**Purpose:** Stabilize layout rhythm, spacing, and grid behavior.
 
 - Prompt summary:
-  > Apply consistent row/header/column sizing and grid line behavior.
+  > Normalize row/header/column sizing and grid line behavior.
 - Outcome:
-  - Unified layout tokens and grid dimensions
-  - Stable two-panel alignment
+  - Consistent sizing tokens and row alignment
+  - Improved visual stability across timeline sections
 
-## Phase 5 – Day/Week/Month Refactor (Codex)
-**Purpose:** Add timescale switching with shared positioning math.
+## Phase 5 – Timescale Refactor (Codex)
+**Purpose:** Support multiple zoom levels without duplicated rendering logic.
 
 - Prompt summary:
-  > Generalize visible timeline columns and support day/week/month views.
+  > Generalize visible timeline columns and support hour/day/week/month modes from shared math.
 - Outcome:
   - `visibleColumns` abstraction
-  - Zoom switching without duplicating rendering logic
+  - Reusable scale-aware positioning and column generation
 
-## Phase 6 – Stress Mode + Rendering Optimization (Codex)
-**Purpose:** Validate scalability and reduce unnecessary render work.
-
-- Prompt summary:
-  > Add synthetic stress data and filter work orders to visible range.
-- Outcome:
-  - `?stress` mode (50 centers / 10,000 orders)
-  - Grouped/filtered rendering for performance
-
-## Phase 7 – Create Panel + Hover Affordance (AI-assisted)
-**Purpose:** Implement click-to-create workflow and panel form.
+## Phase 6 – Stress Mode + Render Optimization (Codex)
+**Purpose:** Confirm performance and scalability characteristics.
 
 - Prompt summary:
-  > Add “Click to add dates” row affordance, right-side Work Order Details panel, `ng-select` status, `ngb-datepicker` dates, and overlap/date validation.
+  > Add synthetic stress data and filter/group work orders to reduce unnecessary render work.
 - Outcome:
-  - Click empty row opens create panel with prefilled start date and end date = start + 7
-  - Scrim/Esc close behavior
-  - Validation blocks invalid saves
+  - `?stress` mode (50 work centers / 10,000 work orders)
+  - Grouped data and visible-range filtering for better runtime behavior
 
-## Phase 8 – Actions Menu + Floating Overlay (AI-assisted)
-**Purpose:** Add Edit/Delete actions on each work-order bar.
+## Phase 7 – Create/Edit Panel + Validation (AI-assisted)
+**Purpose:** Implement primary CRUD flow and form constraints.
 
 - Prompt summary:
-  > Add kebab actions, outside-click/Esc handling, propagation guards, and ensure menu is not hidden by timeline stacking.
+  > Add click-to-create side panel with `ng-select`, `ngb-datepicker`, and overlap/date validation.
 - Outcome:
-  - Kebab actions per bar with Edit/Delete
-  - Single floating overlay menu positioned from kebab coordinates
-  - Menu closes on outside click or Esc and stays above bars/grid
+  - Create/Edit panel with prefilled dates
+  - Required-field/date-range/overlap validation
+  - Cancel/click-outside/Escape interactions
+
+## Phase 8 – Kebab Actions + Overlay Menu (AI-assisted)
+**Purpose:** Add in-row action controls and robust menu behavior.
+
+- Prompt summary:
+  > Add per-bar kebab menu with Edit/Delete, outside-click handling, and safe event propagation.
+- Outcome:
+  - Floating actions menu with Edit/Delete
+  - Reliable close behavior (outside click/Escape)
+  - Correct overlay layering above timeline content
 
 ### Debugging Note
 
-During development, clicking "Edit" caused the UI to freeze due to expensive validation logic executing repeatedly during Angular change detection. Instrumentation was added to isolate the issue, and the validation logic was refactored to avoid repeated O(n) scans of work orders, restoring responsiveness even in stress mode.
+An edit-flow freeze surfaced during development due to repeated expensive validation work during change detection. Validation logic was refactored to reduce repeated scans, restoring responsive interaction behavior.
 
-## Phase 9 – Technical Test Alignment (Codex)
-**Purpose:** Align implementation to the frontend technical test rubric.
+## Phase 9 – Requirement Alignment Pass (Codex)
+**Purpose:** Align implementation and docs to technical test expectations.
 
 - Prompt summary:
-  > Update data contracts to `docId/docType/data`, keep Month default per product decision, align panel actions, and document stress-mode behavior.
+  > Validate required schema/features, strengthen README coverage, and keep implementation demo-ready.
 - Outcome:
-  - Data model now matches required document shape
-  - Sample data expanded to 5 work centers and 9 work orders with all statuses
-  - Create/Edit flows and overlap validation retained with updated schema and non-overlapping examples
-  - Stress mode enabled via `?stress` for 50 work centers / 10,000 work orders
-  - Added Circular Std font include and updated README requirement coverage
+  - Required document schema and sample coverage validated
+  - Timeline interactions, overlap rules, and panel behavior aligned
+  - README and supporting notes improved for evaluator clarity
+
+## Phase 10 – Pixel-Perfect Visual QA + Hotfixes (User + Codex)
+**Purpose:** Final visual matching against Sketch through iterative inspection and CSS hotfixes.
+
+- Prompt summary:
+  > Compare live UI against inspected Sketch measurements and apply exact dimension/color/spacing/typography adjustments.
+- Outcome:
+  - Work-center header aligned flush with timeline header
+  - Hover affordance rebuilt to spec:
+    - top label pill (`Rectangle 7`) sizing, fill, shadow, and CircularStd-Book text tuning
+    - lower hover slot dimensions/border/fill tuning
+  - Timeline row and bar heights updated to target values
+  - Kebab button and Edit/Delete floating menu resized to inspected dimensions
+  - Month scrollbar behavior restored to left-justified
+  - Hour menu option/functionality restored after regression
+
+## Phase Omega – Final Submission Completion (User + Codex)
+**Purpose:** Close the loop on submission readiness and delivery quality.
+
+- Prompt summary:
+  > Perform final requirement sweep, resolve conflicting default-view guidance, verify clean-run commands, and finalize handoff docs.
+- Outcome:
+  - Resolved default-timescale interpretation for submission (Month default per walkthrough expectation)
+  - Preserved Day/Week/Month/Hour support and corrected Save/Create panel labeling behavior
+  - Timeline now anchors to current date context while sample data was shifted into a visible current window for demo reliability
+  - README expanded with clean-run checklist + Loom section placeholder
+  - Clean-run validation completed (`npm ci`, `npm run build`, `npm start`), including build-budget adjustment to prevent production build failure
+  - Project prepared for final Loom recording and public repo submission

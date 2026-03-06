@@ -19,6 +19,15 @@ http://localhost:4200/?stress
 
 Also works with `http://localhost:4200/?stress=1`.
 
+Pre-submit clean check:
+
+```bash
+rm -rf node_modules .angular dist
+npm ci
+npm run build
+npm start
+```
+
 ## Libraries Used
 
 - `@ng-select/ng-select`: status picker in the create/edit panel with a compact selectable dropdown UX.
@@ -35,6 +44,11 @@ Also works with `http://localhost:4200/?stress=1`.
 - Overlap validation on create/edit within the same work center.
 - Click-outside and `Escape` handling for menu/panel dismissal.
 - Stress dataset mode via query param (`?stress`) with 50 work centers and 10,000 work orders.
+
+## Demo Video (Loom)
+
+- Loom walkthrough (5-10 min): `ADD_LINK_HERE`
+- Covers: zoom switching, create, edit, delete, overlap error, and code structure walkthrough.
 
 ## Data Model
 

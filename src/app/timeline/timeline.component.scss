@@ -688,11 +688,6 @@
   box-sizing: border-box;
 }
 
-.field .name-input {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 1px var(--focus);
-}
-
 .field input:focus,
 .date-input:focus {
   outline: 0;
