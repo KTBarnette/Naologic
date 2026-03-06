@@ -36,22 +36,44 @@
 
 .work-orders-page {
   min-height: 100vh;
-  padding: 20px 40px 34px 56px;
+  padding: 20px 40px 34px 101px;
   box-sizing: border-box;
 }
 
 .brand-row {
   height: 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .brand-mark {
+  width: 80px;
+  height: 10px;
+  display: inline-flex;
+  align-items: flex-end;
+  box-sizing: border-box;
   color: #3041e8;
-  font-size: 11px;
-  letter-spacing: 1.2px;
-  line-height: 12px;
-  font-weight: 500;
+  line-height: 10px;
+  white-space: nowrap;
+}
+
+.brand-mark-heavy,
+.brand-mark-light {
+  color: inherit;
+  font-size: 9px;
+  line-height: 10px;
+  text-transform: uppercase;
+}
+
+.brand-mark-heavy {
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.brand-mark-light {
+  font-weight: 400;
+  letter-spacing: 1.48px;
+  margin-left: 2px;
 }
 
 .page-content {
@@ -72,6 +94,10 @@
   margin-top: 24px;
   position: relative;
   z-index: 35;
+}
+
+.work-orders-page.is-panel-open .timeline-toolbar {
+  pointer-events: none;
 }
 
 .timescale-btn {
@@ -349,10 +375,10 @@
 
 .add-slot {
   position: absolute;
-  top: 3px;
-  transform: translateX(-50%);
-  width: 110px;
-  height: 30px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 113px;
+  height: 38px;
   border-radius: 8px;
   border: 1px solid #b0b9ff;
   background: #cfd4fb;
@@ -538,7 +564,7 @@
   pointer-events: none;
   background: rgba(245, 247, 252, 0.74);
   transition: opacity 150ms ease;
-  z-index: 30;
+  z-index: 60;
 }
 
 .panel-backdrop.is-open {
@@ -557,7 +583,7 @@
   box-shadow: -4px 0 16px rgba(24, 34, 68, 0.12);
   transform: translateX(100%);
   transition: transform 180ms ease;
-  z-index: 31;
+  z-index: 61;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -649,6 +675,11 @@
   box-sizing: border-box;
 }
 
+.field .name-input {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
 .field input:focus,
 .date-input:focus {
   outline: 0;
@@ -700,9 +731,27 @@
 }
 
 :host ::ng-deep .status-select .status-pill {
-  background: #e2ebff;
-  color: #3544e8;
-  border: 1px solid #cad8ff;
+  border: 0;
+}
+
+:host ::ng-deep .status-select .status-pill.status-open {
+  background: var(--status-open-bg);
+  color: var(--status-open-text);
+}
+
+:host ::ng-deep .status-select .status-pill.status-in-progress {
+  background: var(--status-progress-bg);
+  color: var(--status-progress-text);
+}
+
+:host ::ng-deep .status-select .status-pill.status-complete {
+  background: var(--status-complete-bg);
+  color: var(--status-complete-text);
+}
+
+:host ::ng-deep .status-select .status-pill.status-blocked {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-text);
 }
 
 :host ::ng-deep .status-select.ng-select-focused .ng-select-container {

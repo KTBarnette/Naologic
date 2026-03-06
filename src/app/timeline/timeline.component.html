@@ -1,6 +1,9 @@
 <section class="work-orders-page" [class.is-panel-open]="panelOpen">
   <header class="brand-row">
-    <div class="brand-mark">NAOLOGIC</div>
+    <div class="brand-mark" aria-label="NAOLOGIC">
+      <span class="brand-mark-heavy">NAO</span>
+      <span class="brand-mark-light">LOGIC</span>
+    </div>
   </header>
 
   <main class="page-content">
@@ -163,7 +166,14 @@
   <form id="work-order-form" class="work-order-form" [formGroup]="workOrderForm" (ngSubmit)="saveWorkOrder()">
     <label class="field">
       <span>Work Order Name</span>
-      <input type="text" formControlName="name" maxlength="80" placeholder="Acme Inc." />
+      <input
+        #workOrderNameInput
+        type="text"
+        class="name-input"
+        formControlName="name"
+        maxlength="80"
+        placeholder="Acme Inc."
+      />
     </label>
 
     <label class="field">

@@ -83,6 +83,7 @@ export class TimelineComponent implements AfterViewInit {
   timescaleMenuOpen = false;
 
   @ViewChild('timelineScrollPanel') private readonly timelineScrollPanelRef?: ElementRef<HTMLElement>;
+  @ViewChild('workOrderNameInput') private readonly workOrderNameInputRef?: ElementRef<HTMLInputElement>;
 
   startDateStructValue: NgbDateStruct | null = null;
   endDateStructValue: NgbDateStruct | null = null;
@@ -150,7 +151,7 @@ export class TimelineComponent implements AfterViewInit {
 
   /** Save button text based on current panel mode. */
   get panelPrimaryActionLabel(): string {
-    return this.panelMode === 'edit' ? 'Save' : 'Create';
+    return 'Create';
   }
 
   /** Side panel title shown in both create and edit mode. */
@@ -592,6 +593,7 @@ export class TimelineComponent implements AfterViewInit {
   private openCreatePanel(workCenterId: string, startDateIso: string): void {
     this.panelMode = 'create';
     this.panelOpen = true;
+    this.timescaleMenuOpen = false;
     this.editingWorkOrderId = null;
     this.panelWorkCenterId = workCenterId;
     this.panelWorkCenterName = this.findWorkCenterName(workCenterId);
@@ -604,12 +606,14 @@ export class TimelineComponent implements AfterViewInit {
       endDate: this.addDaysToIso(startDateIso, 7)
     });
     this.recomputeDerivedFormState();
+    this.focusWorkOrderNameInput();
   }
 
   /** Opens panel in edit mode and hydrates form from existing work order. */
   private openEditPanel(workOrder: WorkOrderDocument): void {
     this.panelMode = 'edit';
     this.panelOpen = true;
+    this.timescaleMenuOpen = false;
     this.editingWorkOrderId = workOrder.docId;
     this.panelWorkCenterId = workOrder.data.workCenterId;
     this.panelWorkCenterName = this.findWorkCenterName(workOrder.data.workCenterId);
@@ -622,6 +626,19 @@ export class TimelineComponent implements AfterViewInit {
       endDate: workOrder.data.endDate
     });
     this.recomputeDerivedFormState();
+    this.focusWorkOrderNameInput();
+  }
+
+  /** Moves focus to the work-order name field when panel opens. */
+  private focusWorkOrderNameInput(): void {
+    queueMicrotask(() => {
+      const nameInput = this.workOrderNameInputRef?.nativeElement;
+      if (!nameInput) {
+        return;
+      }
+      nameInput.focus();
+      nameInput.select();
+    });
   }
 
   /** Rebuilds lookup map of work orders grouped by work center id. */
