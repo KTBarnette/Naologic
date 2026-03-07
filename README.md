@@ -19,14 +19,6 @@ http://localhost:4200/?stress
 
 Also works with `http://localhost:4200/?stress=1`.
 
-Pre-submit clean check:
-
-```bash
-rm -rf node_modules .angular dist
-npm ci
-npm run build
-npm start
-```
 
 ## Libraries Used
 
